@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Intervall-Trainer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+:root{
+  --ink: #14171f;
+  --panel: #1b1f2a;
+  --panel-2: #232838;
+  --line: rgba(237,234,224,0.10);
+  --line-strong: rgba(237,234,224,0.22);
+  --paper: #ece7dd;
+  --paper-dim: #9198a8;
+  --brass: #cf9e42;
+  --brass-soft: rgba(207,158,66,0.16);
+  --good: #6fa37f;
+  --good-soft: rgba(111,163,127,0.16);
+  --bad: #b25b52;
+  --bad-soft: rgba(178,91,82,0.16);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background: var(--ink);
+  color: var(--paper);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wrap{
+  max-width:640px;
+  margin:0 auto;
+  padding: 28px 18px 60px;
+}
+
+/* Header + staff motif */
+header{margin-bottom:6px;}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--brass);
+  margin:0 0 8px;
+}
+h1{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:clamp(28px,7vw,38px);
+  line-height:1.05;
+  margin:0 0 10px;
+  letter-spacing:-0.01em;
+}
+.sub{
+  color:var(--paper-dim);
+  font-size:14.5px;
+  line-height:1.5;
+  margin:0 0 20px;
+  max-width:46ch;
+}
+
+.staff{
+  position:relative;
+  height:14px;
+  margin: 6px 0 26px;
+}
+.staff::before{
+  content:"";
+  position:absolute;
+  left:0;right:0;top:0;
+  height:100%;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line-strong) 0px, var(--line-strong) 1px,
+    transparent 1px, transparent 3.5px
+  );
+  opacity:.9;
+}
+
+/* Tabs */
+.tabs{
+  display:flex;
+  gap:2px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:3px;
+  margin-bottom:22px;
+}
+.tab{
+  flex:1;
+  padding:11px 10px;
+  text-align:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--paper-dim);
+  background:transparent;
+  border:none;
+  border-radius:7px;
+  cursor:pointer;
+  transition:.15s ease;
+}
+.tab.active{
+  background:var(--brass);
+  color:#1a1408;
+  font-weight:600;
+}
+
+.view{display:none;}
+.view.active{display:block;}
+
+/* Playback style selector (Lernen) */
+.style-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:18px;
+  flex-wrap:wrap;
+}
+.chip{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11.5px;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  background:transparent;
+  color:var(--paper-dim);
+  cursor:pointer;
+  transition:.15s ease;
+}
+.chip.active{
+  background:var(--brass-soft);
+  border-color:var(--brass);
+  color:var(--brass);
+}
+
+/* Interval cards */
+.card{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:10px;
+}
+.ladder{
+  flex-shrink:0;
+  width:26px;
+  height:78px;
+  position:relative;
+}
+.ladder .tick{
+  position:absolute;
+  left:0; right:0;
+  height:1px;
+  background:var(--line);
+}
+.ladder .dot{
+  position:absolute;
+  width:9px;height:9px;
+  border-radius:50%;
+  left:50%;
+  transform:translate(-50%,50%);
+}
+.ladder .dot.root{ background:var(--paper-dim); bottom:0; }
+.ladder .dot.target{ background:var(--brass); }
+.ladder .connector{
+  position:absolute;
+  left:50%;
+  width:1.5px;
+  background:var(--brass);
+  opacity:.5;
+  bottom:0;
+  transform:translateX(-50%);
+}
+
+.card-info{flex:1;min-width:0;}
+.card-name{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:16.5px;
+}
+.card-meta{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--paper-dim);
+  margin-top:3px;
+}
+.play-btn{
+  flex-shrink:0;
+  width:42px;height:42px;
+  border-radius:50%;
+  border:1px solid var(--line-strong);
+  background:var(--panel-2);
+  color:var(--brass);
+  font-size:16px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:.15s ease;
+}
+.play-btn:active{ transform:scale(0.92); background:var(--brass-soft); }
+
+/* Section headings */
+.section-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--paper-dim);
+  margin:26px 0 10px;
+}
+.section-label:first-child{margin-top:0;}
+
+/* Training settings */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+}
+.preset-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.range-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.range-chip{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11.5px;
+  padding:6px 10px;
+  border-radius:7px;
+  border:1px solid var(--line-strong);
+  background:transparent;
+  color:var(--paper-dim);
+  cursor:pointer;
+}
+.range-chip.active{
+  background:var(--brass-soft);
+  border-color:var(--brass);
+  color:var(--brass);
+}
+
+/* Score bar */
+.score-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  margin-bottom:16px;
+  font-family:'IBM Plex Mono',monospace;
+}
+.score-bar .num{
+  font-family:'Fraunces',serif;
+  font-size:22px;
+  color:var(--paper);
+}
+.score-item{text-align:center;}
+.score-item .label{font-size:10px;color:var(--paper-dim);letter-spacing:.08em;text-transform:uppercase;margin-top:2px;}
+
+.big-btn{
+  width:100%;
+  padding:16px;
+  border-radius:12px;
+  border:none;
+  background:var(--brass);
+  color:#1a1408;
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:600;
+  font-size:13.5px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  cursor:pointer;
+  margin-bottom:10px;
+}
+.big-btn:active{ opacity:.85; }
+.big-btn.secondary{
+  background:var(--panel-2);
+  color:var(--paper);
+  border:1px solid var(--line-strong);
+}
+
+.answer-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:16px 0;
+}
+.answer-btn{
+  padding:13px 10px;
+  border-radius:10px;
+  border:1px solid var(--line-strong);
+  background:var(--panel);
+  color:var(--paper);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+  text-align:left;
+}
+.answer-btn:active{ transform:scale(0.98); }
+.answer-btn.correct{ background:var(--good-soft); border-color:var(--good); color:var(--good); }
+.answer-btn.wrong{ background:var(--bad-soft); border-color:var(--bad); color:var(--bad); }
+.answer-btn:disabled{ cursor:default; opacity:.7; }
+
+.feedback{
+  min-height:22px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  text-align:center;
+  margin-bottom:4px;
+}
+.feedback.good{color:var(--good);}
+.feedback.bad{color:var(--bad);}
+
+.hint{
+  color:var(--paper-dim);
+  font-size:12.5px;
+  text-align:center;
+  margin-top:10px;
+  line-height:1.5;
+}
+
+/* Notation */
+.staff-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:18px 10px 14px;
+  margin-bottom:4px;
+  text-align:center;
+}
+.staff-svg-wrap{
+  display:flex;
+  justify-content:center;
+  overflow-x:auto;
+}
+.staff-svg-wrap svg{ display:block; }
+.staff-line{ stroke:var(--paper-dim); stroke-width:1.2; opacity:.85; }
+.ledger-line{ stroke:var(--paper-dim); stroke-width:1.2; opacity:.85; }
+.notehead{ fill:var(--brass); }
+.accidental{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:15px;
+  fill:var(--paper);
+}
+.clef{
+  font-size:56px;
+  fill:var(--paper-dim);
+}
+.listen-btn{
+  margin-top:12px;
+  padding:8px 16px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  background:transparent;
+  color:var(--brass);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  cursor:pointer;
+}
+.listen-btn:active{ background:var(--brass-soft); }
+
+@media (max-width:380px){
+  .answer-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Gehörbildung</p>
+    <h1>Intervall-Trainer</h1>
+    <p class="sub">Alle 13 Intervalle von der Prime bis zur Oktave hören, verstehen und per Gehör oder in Notenschrift erkennen.</p>
+  </header>
+  <div class="staff"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="learn">Lernen</button>
+    <button class="tab" data-view="train">Hören</button>
+    <button class="tab" data-view="notes">Noten</button>
+  </div>
+
+  <!-- LERNEN -->
+  <div class="view active" id="view-learn">
+    <div class="style-row" id="learn-style"></div>
+    <div id="learn-list"></div>
+  </div>
+
+  <!-- TRAINING -->
+  <div class="view" id="view-train">
+
+    <div class="score-bar">
+      <div class="score-item"><div class="num" id="score-correct">0</div><div class="label">Richtig</div></div>
+      <div class="score-item"><div class="num" id="score-total">0</div><div class="label">Fragen</div></div>
+      <div class="score-item"><div class="num" id="score-streak">0</div><div class="label">Serie</div></div>
+    </div>
+
+    <div class="panel" id="settings-panel">
+      <div class="section-label" style="margin-top:0">Auswahl</div>
+      <div class="preset-row">
+        <button class="chip" data-preset="easy">Einfach</button>
+        <button class="chip" data-preset="diatonic">Standard</button>
+        <button class="chip" data-preset="all">Alle 13</button>
+      </div>
+      <div class="range-grid" id="range-grid"></div>
+
+      <div class="section-label">Wiedergabe</div>
+      <div class="style-row" id="train-style"></div>
+    </div>
+
+    <button class="big-btn" id="btn-newq">Neue Frage</button>
+    <button class="big-btn secondary" id="btn-replay">Nochmal anhören</button>
+
+    <div class="feedback" id="feedback"></div>
+    <div class="answer-grid" id="answer-grid"></div>
+    <p class="hint" id="hint">Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.</p>
+  </div>
+
+  <!-- NOTEN -->
+  <div class="view" id="view-notes">
+
+    <div class="score-bar">
+      <div class="score-item"><div class="num" id="score-correct-n">0</div><div class="label">Richtig</div></div>
+      <div class="score-item"><div class="num" id="score-total-n">0</div><div class="label">Fragen</div></div>
+      <div class="score-item"><div class="num" id="score-streak-n">0</div><div class="label">Serie</div></div>
+    </div>
+
+    <div class="panel" id="settings-panel-n">
+      <div class="section-label" style="margin-top:0">Auswahl</div>
+      <div class="preset-row">
+        <button class="chip" data-preset-n="easy">Einfach</button>
+        <button class="chip" data-preset-n="diatonic">Standard</button>
+        <button class="chip" data-preset-n="all">Alle 13</button>
+      </div>
+      <div class="range-grid" id="range-grid-n"></div>
+    </div>
+
+    <button class="big-btn" id="btn-newq-n">Neue Frage</button>
+
+    <div class="staff-card">
+      <div class="staff-svg-wrap" id="notation-holder"></div>
+      <button class="listen-btn" id="btn-listen-n" title="Noten anhören">🔊 Anhören</button>
+    </div>
+
+    <div class="feedback" id="feedback-n"></div>
+    <div class="answer-grid" id="answer-grid-n"></div>
+    <p class="hint" id="hint-n">Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.</p>
+  </div>
+
+</div>
+
+<script>
+const INTERVALS = [
+  {semi:0,  name:'Prime',            short:'P1', step:0},
+  {semi:1,  name:'kleine Sekunde',   short:'m2', step:1},
+  {semi:2,  name:'große Sekunde',    short:'M2', step:1},
+  {semi:3,  name:'kleine Terz',      short:'m3', step:2},
+  {semi:4,  name:'große Terz',       short:'M3', step:2},
+  {semi:5,  name:'Quarte',           short:'P4', step:3},
+  {semi:6,  name:'Tritonus',         short:'TT', step:3},
+  {semi:7,  name:'Quinte',           short:'P5', step:4},
+  {semi:8,  name:'kleine Sexte',     short:'m6', step:5},
+  {semi:9,  name:'große Sexte',      short:'M6', step:5},
+  {semi:10, name:'kleine Septime',   short:'m7', step:6},
+  {semi:11, name:'große Septime',    short:'M7', step:6},
+  {semi:12, name:'Oktave',           short:'P8', step:7},
+];
+
+const PRESETS = {
+  easy: [0,4,7,12],
+  diatonic: [0,2,4,5,7,9,11,12],
+  all: INTERVALS.map(i=>i.semi)
+};
+
+/* ---------- Audio ---------- */
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
+
+function playTone(ctx, freq, startTime, duration){
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type='triangle';
+  osc.frequency.value=freq;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(0.26, startTime+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime+duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(startTime); osc.stop(startTime+duration+0.05);
+
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type='sine';
+  osc2.frequency.value=freq*2;
+  gain2.gain.setValueAtTime(0, startTime);
+  gain2.gain.linearRampToValueAtTime(0.07, startTime+0.02);
+  gain2.gain.exponentialRampToValueAtTime(0.0001, startTime+duration);
+  osc2.connect(gain2).connect(ctx.destination);
+  osc2.start(startTime); osc2.stop(startTime+duration+0.05);
+}
+
+function playInterval(rootMidi, semi, mode){
+  ensureAudio();
+  const ctx = audioCtx;
+  const now = ctx.currentTime + 0.05;
+  const f1 = midiToFreq(rootMidi);
+  const f2 = midiToFreq(rootMidi+semi);
+  const dur = 1.05;
+  if(mode==='harmonic'){
+    playTone(ctx,f1,now,dur);
+    playTone(ctx,f2,now,dur);
+  } else if(mode==='down'){
+    playTone(ctx,f2,now,dur*0.65);
+    playTone(ctx,f1,now+dur*0.7,dur);
+  } else { // up
+    playTone(ctx,f1,now,dur*0.65);
+    playTone(ctx,f2,now+dur*0.7,dur);
+  }
+}
+
+/* ---------- Ladder visual ---------- */
+function buildLadder(container, semi){
+  container.innerHTML='';
+  const ladder = document.createElement('div');
+  ladder.className='ladder';
+  for(let t=0;t<=12;t+=4){
+    const tick=document.createElement('div');
+    tick.className='tick';
+    tick.style.bottom = (t/12*100)+'%';
+    ladder.appendChild(tick);
+  }
+  const connector=document.createElement('div');
+  connector.className='connector';
+  connector.style.height=(semi/12*100)+'%';
+  ladder.appendChild(connector);
+
+  const root=document.createElement('div');
+  root.className='dot root';
+  ladder.appendChild(root);
+
+  const target=document.createElement('div');
+  target.className='dot target';
+  target.style.bottom=(semi/12*100)+'%';
+  ladder.appendChild(target);
+
+  container.appendChild(ladder);
+}
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.view).classList.add('active');
+  });
+});
+
+/* ---------- Learn view ---------- */
+let learnMode = 'harmonic';
+const learnStyleRow = document.getElementById('learn-style');
+[['harmonic','Harmonisch'],['up','Aufwärts'],['down','Abwärts']].forEach(([val,label])=>{
+  const b=document.createElement('button');
+  b.className='chip'+(val===learnMode?' active':'');
+  b.textContent=label;
+  b.addEventListener('click',()=>{
+    learnMode=val;
+    learnStyleRow.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+  });
+  learnStyleRow.appendChild(b);
+});
+
+const learnList = document.getElementById('learn-list');
+INTERVALS.forEach(iv=>{
+  const card=document.createElement('div');
+  card.className='card';
+
+  const ladderWrap=document.createElement('div');
+  buildLadder(ladderWrap, iv.semi);
+  card.appendChild(ladderWrap.firstChild);
+
+  const info=document.createElement('div');
+  info.className='card-info';
+  info.innerHTML=`<div class="card-name">${iv.name}</div><div class="card-meta">${iv.short} · ${iv.semi} Halbton${iv.semi===1?'':'e'}</div>`;
+  card.appendChild(info);
+
+  const btn=document.createElement('button');
+  btn.className='play-btn';
+  btn.textContent='▶';
+  btn.addEventListener('click',()=>{
+    playInterval(60, iv.semi, learnMode);
+  });
+  card.appendChild(btn);
+
+  learnList.appendChild(card);
+});
+
+/* ---------- Training view ---------- */
+let selectedSemi = new Set(PRESETS.diatonic);
+let trainMode = 'random'; // 'harmonic' | 'up' | 'down' | 'random'
+let current = null; // {rootMidi, semi, mode}
+let answered = false;
+let stats = {correct:0, total:0, streak:0};
+
+const rangeGrid = document.getElementById('range-grid');
+INTERVALS.forEach(iv=>{
+  const chip=document.createElement('button');
+  chip.className='range-chip'+(selectedSemi.has(iv.semi)?' active':'');
+  chip.textContent=iv.short;
+  chip.dataset.semi=iv.semi;
+  chip.addEventListener('click',()=>{
+    const s=iv.semi;
+    if(selectedSemi.has(s)) selectedSemi.delete(s); else selectedSemi.add(s);
+    chip.classList.toggle('active');
+    updateHint();
+  });
+  rangeGrid.appendChild(chip);
+});
+
+document.querySelectorAll('[data-preset]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selectedSemi = new Set(PRESETS[btn.dataset.preset]);
+    rangeGrid.querySelectorAll('.range-chip').forEach(c=>{
+      c.classList.toggle('active', selectedSemi.has(Number(c.dataset.semi)));
+    });
+    updateHint();
+  });
+});
+
+const trainStyleRow = document.getElementById('train-style');
+[['random','Zufällig'],['harmonic','Harmonisch'],['up','Aufwärts'],['down','Abwärts']].forEach(([val,label])=>{
+  const b=document.createElement('button');
+  b.className='chip'+(val===trainMode?' active':'');
+  b.textContent=label;
+  b.addEventListener('click',()=>{
+    trainMode=val;
+    trainStyleRow.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+  });
+  trainStyleRow.appendChild(b);
+});
+
+function updateHint(){
+  const hint=document.getElementById('hint');
+  if(selectedSemi.size<2){
+    hint.textContent='Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.';
+  } else {
+    hint.textContent='';
+  }
+}
+
+function pickMode(){
+  if(trainMode!=='random') return trainMode;
+  return ['harmonic','up','down'][Math.floor(Math.random()*3)];
+}
+
+function newQuestion(){
+  if(selectedSemi.size<2){ updateHint(); return; }
+  const options = [...selectedSemi];
+  const semi = options[Math.floor(Math.random()*options.length)];
+  const rootMidi = 52 + Math.floor(Math.random()*13); // E3..C4-ish start range
+  const mode = pickMode();
+  current = {rootMidi, semi, mode};
+  answered = false;
+  document.getElementById('feedback').textContent='';
+  document.getElementById('feedback').className='feedback';
+  renderAnswers();
+  playInterval(rootMidi, semi, mode);
+}
+
+function renderAnswers(){
+  const grid=document.getElementById('answer-grid');
+  grid.innerHTML='';
+  const options = INTERVALS.filter(iv=>selectedSemi.has(iv.semi));
+  // shuffle
+  const shuffled = [...options].sort(()=>Math.random()-0.5);
+  shuffled.forEach(iv=>{
+    const btn=document.createElement('button');
+    btn.className='answer-btn';
+    btn.textContent = iv.name;
+    btn.addEventListener('click',()=>handleAnswer(iv.semi, btn));
+    grid.appendChild(btn);
+  });
+}
+
+function handleAnswer(semi, btnEl){
+  if(answered || !current) return;
+  answered = true;
+  stats.total++;
+  const correct = semi === current.semi;
+  if(correct){ stats.correct++; stats.streak++; }
+  else { stats.streak = 0; }
+  updateScore();
+
+  const fb=document.getElementById('feedback');
+  const correctName = INTERVALS.find(i=>i.semi===current.semi).name;
+  if(correct){
+    fb.textContent = 'Richtig — ' + correctName;
+    fb.className='feedback good';
+    btnEl.classList.add('correct');
+  } else {
+    fb.textContent = 'Leider nicht — richtig war: ' + correctName;
+    fb.className='feedback bad';
+    btnEl.classList.add('wrong');
+  }
+  document.querySelectorAll('.answer-btn').forEach(b=>{
+    b.disabled = true;
+    if(b.textContent === correctName) b.classList.add('correct');
+  });
+}
+
+function updateScore(){
+  document.getElementById('score-correct').textContent = stats.correct;
+  document.getElementById('score-total').textContent = stats.total;
+  document.getElementById('score-streak').textContent = stats.streak;
+}
+
+document.getElementById('btn-newq').addEventListener('click', newQuestion);
+document.getElementById('btn-replay').addEventListener('click', ()=>{
+  if(current) playInterval(current.rootMidi, current.semi, current.mode);
+});
+
+updateHint();
+
+/* ========== Notenschrift-Modus ========== */
+
+/* Diatonische Arithmetik: Position 0 = E4 (unterste Linie im Violinschlüssel).
+   Jede Position entspricht einer Stufe im Notenalphabet (Linie oder Zwischenraum). */
+const LETTERS = ['C','D','E','F','G','A','B'];
+const LETTER_PC = [0,2,4,5,7,9,11];
+
+function positionToNatural(pos){
+  const abs = pos + 30; // E4 (Buchstabe E, Oktave 4) liegt bei absDiatonic 30
+  const li = ((abs % 7) + 7) % 7;
+  const octave = Math.floor(abs / 7);
+  const letter = LETTERS[li];
+  const naturalMidi = (octave + 1) * 12 + LETTER_PC[li];
+  return {letter, octave, naturalMidi};
+}
+
+function buildNoteAt(pos, desiredMidi){
+  const nat = positionToNatural(pos);
+  const accidental = desiredMidi - nat.naturalMidi;
+  return {position: pos, letter: nat.letter, octave: nat.octave, accidental, midi: desiredMidi};
+}
+
+function randomRootNote(){
+  const pos = -3 + Math.floor(Math.random() * 6); // -3..2
+  const nat = positionToNatural(pos);
+  return {position: pos, letter: nat.letter, octave: nat.octave, accidental: 0, midi: nat.naturalMidi};
+}
+
+function ledgerPositionsFor(pos){
+  const out = [];
+  if(pos >= 10){ for(let p=10; p<=pos; p+=2) out.push(p); }
+  if(pos <= -2){ for(let p=-2; p>=pos; p-=2) out.push(p); }
+  return out;
+}
+
+const ACC_SYMBOL = {'-2':'♭♭','-1':'♭','0':'','1':'♯','2':'𝄪'};
+
+const LINE_GAP = 12;
+const HALF = LINE_GAP / 2;
+
+function renderStaff(container, notes){
+  const width = 30 + notes.length * 100 + 30;
+  const height = 190;
+  const bottomY = 120; // y für Position 0 (E4)
+  const staffLeft = 56;
+  const staffRight = width - 24;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', Math.min(width, 380));
+  svg.setAttribute('height', height * (Math.min(width,380)/width));
+
+  // Notenlinien
+  for(let i=0;i<5;i++){
+    const y = bottomY - (i*2)*HALF;
+    const line = document.createElementNS(svgNS,'line');
+    line.setAttribute('x1', staffLeft); line.setAttribute('x2', staffRight);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class','staff-line');
+    svg.appendChild(line);
+  }
+
+  // Notenschlüssel (Violinschlüssel, Unicode-Glyph als Näherung)
+  const clef = document.createElementNS(svgNS,'text');
+  clef.setAttribute('x', staffLeft - 40);
+  clef.setAttribute('y', bottomY + 16);
+  clef.setAttribute('class','clef');
+  clef.textContent = '𝄞';
+  svg.appendChild(clef);
+
+  notes.forEach((note, idx)=>{
+    const x = staffLeft + 60 + idx*90;
+    const y = bottomY - note.position*HALF;
+
+    // Hilfslinien
+    ledgerPositionsFor(note.position).forEach(p=>{
+      const ly = bottomY - p*HALF;
+      const led = document.createElementNS(svgNS,'line');
+      led.setAttribute('x1', x-11); led.setAttribute('x2', x+11);
+      led.setAttribute('y1', ly); led.setAttribute('y2', ly);
+      led.setAttribute('class','ledger-line');
+      svg.appendChild(led);
+    });
+
+    // Versetzungszeichen
+    if(note.accidental !== 0){
+      const acc = document.createElementNS(svgNS,'text');
+      acc.setAttribute('x', x-24);
+      acc.setAttribute('y', y+5);
+      acc.setAttribute('class','accidental');
+      acc.textContent = ACC_SYMBOL[String(note.accidental)] || '';
+      svg.appendChild(acc);
+    }
+
+    // Notenkopf
+    const head = document.createElementNS(svgNS,'ellipse');
+    head.setAttribute('cx', x); head.setAttribute('cy', y);
+    head.setAttribute('rx', 7.5); head.setAttribute('ry', 5.5);
+    head.setAttribute('class','notehead');
+    head.setAttribute('transform', `rotate(-18 ${x} ${y})`);
+    svg.appendChild(head);
+  });
+
+  container.innerHTML = '';
+  container.appendChild(svg);
+}
+
+let selectedSemiN = new Set(PRESETS.diatonic);
+let currentN = null; // {rootNote, targetNote, iv}
+let answeredN = false;
+let statsN = {correct:0, total:0, streak:0};
+
+const rangeGridN = document.getElementById('range-grid-n');
+INTERVALS.forEach(iv=>{
+  const chip=document.createElement('button');
+  chip.className='range-chip'+(selectedSemiN.has(iv.semi)?' active':'');
+  chip.textContent=iv.short;
+  chip.dataset.semi=iv.semi;
+  chip.addEventListener('click',()=>{
+    const s=iv.semi;
+    if(selectedSemiN.has(s)) selectedSemiN.delete(s); else selectedSemiN.add(s);
+    chip.classList.toggle('active');
+    updateHintN();
+  });
+  rangeGridN.appendChild(chip);
+});
+
+document.querySelectorAll('[data-preset-n]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selectedSemiN = new Set(PRESETS[btn.dataset.presetN]);
+    rangeGridN.querySelectorAll('.range-chip').forEach(c=>{
+      c.classList.toggle('active', selectedSemiN.has(Number(c.dataset.semi)));
+    });
+    updateHintN();
+  });
+});
+
+function updateHintN(){
+  const hint=document.getElementById('hint-n');
+  hint.textContent = selectedSemiN.size<2
+    ? 'Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.'
+    : '';
+}
+
+function newQuestionN(){
+  if(selectedSemiN.size<2){ updateHintN(); return; }
+  const options = INTERVALS.filter(iv=>selectedSemiN.has(iv.semi));
+  const iv = options[Math.floor(Math.random()*options.length)];
+  const rootNote = randomRootNote();
+  const targetNote = buildNoteAt(rootNote.position + iv.step, rootNote.midi + iv.semi);
+  currentN = {rootNote, targetNote, iv};
+  answeredN = false;
+  document.getElementById('feedback-n').textContent='';
+  document.getElementById('feedback-n').className='feedback';
+  renderStaff(document.getElementById('notation-holder'), [rootNote, targetNote]);
+  renderAnswersN();
+}
+
+function renderAnswersN(){
+  const grid=document.getElementById('answer-grid-n');
+  grid.innerHTML='';
+  const options = INTERVALS.filter(iv=>selectedSemiN.has(iv.semi));
+  const shuffled = [...options].sort(()=>Math.random()-0.5);
+  shuffled.forEach(iv=>{
+    const btn=document.createElement('button');
+    btn.className='answer-btn';
+    btn.textContent = iv.name;
+    btn.addEventListener('click',()=>handleAnswerN(iv.semi, btn));
+    grid.appendChild(btn);
+  });
+}
+
+function handleAnswerN(semi, btnEl){
+  if(answeredN || !currentN) return;
+  answeredN = true;
+  statsN.total++;
+  const correct = semi === currentN.iv.semi;
+  if(correct){ statsN.correct++; statsN.streak++; }
+  else { statsN.streak = 0; }
+  updateScoreN();
+
+  const fb=document.getElementById('feedback-n');
+  const correctName = currentN.iv.name;
+  if(correct){
+    fb.textContent = 'Richtig — ' + correctName;
+    fb.className='feedback good';
+    btnEl.classList.add('correct');
+  } else {
+    fb.textContent = 'Leider nicht — richtig war: ' + correctName;
+    fb.className='feedback bad';
+    btnEl.classList.add('wrong');
+  }
+  document.querySelectorAll('#answer-grid-n .answer-btn').forEach(b=>{
+    b.disabled = true;
+    if(b.textContent === correctName) b.classList.add('correct');
+  });
+}
+
+function updateScoreN(){
+  document.getElementById('score-correct-n').textContent = statsN.correct;
+  document.getElementById('score-total-n').textContent = statsN.total;
+  document.getElementById('score-streak-n').textContent = statsN.streak;
+}
+
+document.getElementById('btn-newq-n').addEventListener('click', newQuestionN);
+document.getElementById('btn-listen-n').addEventListener('click', ()=>{
+  if(currentN) playInterval(currentN.rootNote.midi, currentN.iv.semi, 'harmonic');
+});
+
+updateHintN();
+</script>
+</body>
+</html>
