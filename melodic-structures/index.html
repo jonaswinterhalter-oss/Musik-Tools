@@ -84,6 +84,10 @@
   .instruction{padding:14px 20px 0;font-size:15px;max-width:62ch}
   .instruction b{color:#fff;font-weight:600}
   .instruction .sub{color:var(--muted);font-size:13.5px;margin-top:6px}
+  .bookref{
+    margin:12px 20px 0;padding-left:11px;border-left:2px solid var(--brass-dim);
+    font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--muted)
+  }
 
   /* ---------- Notenpapier ---------- */
   .paper{
@@ -100,13 +104,16 @@
   .numbers{display:flex;gap:10px;flex-wrap:wrap;padding:4px 20px 0}
   .barbox{
     border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2);
-    min-width:118px;flex:1 1 118px;display:flex;gap:12px;align-items:flex-start
+    flex:1 1 auto;min-width:0;display:flex;gap:12px;align-items:flex-start
   }
-  .barbox.two{flex:1 1 220px}
-  .barbox .beat{flex:1 1 0;min-width:0}
+  .barbox .beat{min-width:max-content}
   .barbox .beat + .beat{border-left:1px dashed var(--line);padding-left:12px}
   .barbox .cs{font-family:var(--display);font-weight:700;font-size:17px;margin-bottom:6px}
-  .barbox .tok{font-family:var(--mono);font-size:15px;color:var(--brass);letter-spacing:.06em}
+  /* Die vier Zahlen stehen immer in einer Zeile – lieber kleiner als umgebrochen */
+  .barbox .tok{
+    font-family:var(--mono);font-size:14px;color:var(--brass);
+    white-space:nowrap;letter-spacing:.01em
+  }
 
   /* ---------- Aktionen ---------- */
   .actions{display:flex;gap:10px;padding:18px 20px 20px;flex-wrap:wrap}
@@ -139,7 +146,15 @@
     .card-head h2{font-size:19px}
     .paper{margin:14px 12px}
     .instruction,.numbers,.actions{padding-left:14px;padding-right:14px}
+    .bookref{margin-left:14px;margin-right:14px}
     .card-head{padding:14px}
+    .barbox{padding:9px 10px;gap:9px}
+    .barbox .beat + .beat{padding-left:9px}
+    .barbox .cs{font-size:15px}
+    .barbox .tok{font-size:12px}
+  }
+  @media (max-width:400px){
+    .barbox .tok{font-size:11px;letter-spacing:-.01em}
   }
 </style>
 
@@ -182,6 +197,7 @@
     </div>
 
     <div class="instruction" id="instruction"></div>
+    <p class="bookref" id="bookref"></p>
 
     <div class="paper" id="paper"></div>
     <div class="numbers" id="numbers" hidden></div>
@@ -379,15 +395,19 @@ MOLL_KEYS.forEach(([label, t, ii, v]) => {
 const ALL_DUR  = DUR_KEYS.map(k => 't_' + k[1]);
 const ALL_MOLL = MOLL_KEYS.map(k => 'm_' + k[1]);
 
-Object.assign(PROGS, {
-  /* Einzelakkorde */
-  s_maj : P('s_maj','C∆ – zwei Takte',      'Cmaj7|Cmaj7'),
-  s_dom : P('s_dom','F7 – zwei Takte',      'F7|F7'),
-  s_min : P('s_min','D-7 – zwei Takte',     'Dm7|Dm7'),
-  s_hd  : P('s_hd','Bø – zwei Takte',       'Bm7b5|Bm7b5'),
-  s_b9  : P('s_b9','A7♭9 – zwei Takte',     'A7b9|A7b9'),
-  s_maj2: P('s_maj2','E♭∆ – zwei Takte',    'Ebmaj7|Ebmaj7'),
+/* Einzelakkorde: jeder Typ in allen zwölf Tonarten.
+   Die Schreibweise regelt chooseSpelling – aus Ges-ø wird dort Fis-ø. */
+const SINGLE_ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const QUALITIES = ['maj7','7','m7','m7b5','7b9'];
+const ALL_SINGLES = [];
+QUALITIES.forEach(q => SINGLE_ROOTS.forEach(r => {
+  const id = `s_${q}_${r}`;
+  PROGS[id] = P(id, 'Einzelakkord', `${r}${q}`);
+  PROGS[id].single = true;
+  ALL_SINGLES.push(id);
+}));
 
+Object.assign(PROGS, {
   /* Turnarounds & dichte Changes */
   tn_C  : P('tn_C','Turnaround in C',       'Cmaj7 A7b9|Dm7 G7|Cmaj7 A7b9|Dm7 G7'),
   tn_F  : P('tn_F','Turnaround in F',       'Fmaj7 D7b9|Gm7 C7|Fmaj7 D7b9|Gm7 C7'),
@@ -412,9 +432,9 @@ Object.assign(PROGS, {
    ========================================================= */
 const LEVELS = [
   { n:1,  title:'Die Grundgruppe 1-2-3-5',
-    head:'Vier Töne pro Akkord',
-    text:'Spiele die Gruppe aufwärts durch die Changes, achtel-genau und langsam. Höre jeden einzelnen Ton gegen den Akkord – das ist Gehörbildung, nicht Fingerübung.',
-    groupings:['1-5'], perms:['0123'], progs:['s_maj','s_dom','s_min','s_hd','s_b9','s_maj2'] },
+    head:'Jeder Akkordtyp in jeder Tonart',
+    text:'Spiele die Gruppe aufwärts, achtel-genau und langsam. Höre jeden einzelnen Ton gegen den Akkord – das ist Gehörbildung, nicht Fingerübung. Auf Moll-Akkorden wird aus 1-2-3-5 die Folge 1-3-4-5, auf ♭9-Dominanten 1-♭2-3-5.',
+    groupings:['1-5'], perms:['0123'], progs:ALL_SINGLES, cap:60 },
 
   { n:2,  title:'1-5 durch alle zwölf Tonarten',
     head:'II-V-I in Dur und Moll',
@@ -471,6 +491,23 @@ const LEVELS = [
     text:'Pro Akkord die Gruppe wählen, die vom letzten Ton aus am kürzesten liegt. Danach frei: Editing und Umkehrungen dazu. Ab hier wird aus der Übung ein Solo.',
     progs:['t_C','t_Ab','m_B','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], groupings:['mixed'], perms:['mixed'], edit:true }
 ];
+
+/* Fundstellen im Buch (Bergonzi, Inside Improvisation Vol. 1,
+   Advance Music) – Kapitel und Seitenzahlen der Originalausgabe. */
+const BOOK_REFS = {
+  1:  'Buch: Kapitel I, S. 7–12 · Assignment I: S. 20',
+  2:  'Buch: Kapitel I, S. 7–19 · Übezyklen: Kapitel VIII, S. 49–50',
+  3:  'Buch: Kapitel I, S. 10–19 (24 Permutationen: S. 10–11) · Assignment I: S. 20',
+  4:  'Buch: Kapitel II, S. 25–26 · Assignment II: S. 27',
+  5:  'Buch: Kapitel III, S. 31–33 · Assignment III: S. 34 · Kapitel IV, S. 37',
+  6:  'Buch: Kapitel V, S. 39–41 · Assignment V: S. 42',
+  7:  'Buch: Kapitel VI, S. 43–44 · Assignment VI: S. 45',
+  8:  'Buch: Kapitel VII, S. 47 · Assignment VII: S. 48',
+  9:  'Buch: Kapitel IX, S. 58–62 · Assignment IX: S. 63',
+  10: 'Buch: Kapitel XI, S. 69–72 · Assignment XI: S. 73',
+  11: 'Buch: Kapitel XII, S. 74–78 · Assignment XII: S. 79 · Avoid Notes: Kapitel X, S. 64–65',
+  12: 'Buch: Kapitel XIII, S. 80–87 · Assignment XIII: S. 88'
+};
 
 /* =========================================================
    5 · ÜBUNGEN ERZEUGEN (deterministisch, stabile IDs)
@@ -635,7 +672,7 @@ function paperMessage(host, text, withRetry){
 }
 
 let renderToken = 0;
-async function renderNotation(planned, inst, host){
+async function renderNotation(rows, inst, host){
   const token = ++renderToken;
   paperMessage(host, 'Notensatz wird geladen …', false);
 
@@ -650,13 +687,29 @@ async function renderNotation(planned, inst, host){
   host.classList.remove('empty');
   host.innerHTML = '';
   const VF = Vex.Flow;
-  const rows = layout(planned, inst);
   const clef = inst === 'bass' ? 'bass' : 'treble';
 
   const total = rows.length;
-  const perSystem = (host.clientWidth < 520 && total > 2) ? 2 : Math.min(total, 4);
+  const avail = Math.max(host.clientWidth - 12, 300);
+
+  /* Platzbedarf pro Takt: acht Achtel brauchen doppelt so viel Raum wie vier.
+     Der erste Takt bekommt Zuschlag für Schlüssel und Taktangabe. */
+  const demandOf = (bar, first) =>
+    30 * (bar.length * 4 + (bar.length === 1 ? 1 : 0)) + 44 + (first ? 64 : 0);
+  const systemDemands = n => {
+    const out = [];
+    for (let s = 0; s * n < total; s++){
+      out.push(rows.slice(s * n, (s + 1) * n)
+                   .reduce((d, b, i) => d + demandOf(b, s === 0 && i === 0), 16));
+    }
+    return out;
+  };
+  // so viele Takte pro Zeile wie lesbar hineinpassen, sonst umbrechen
+  let perSystem = Math.min(total, 4);
+  while (perSystem > 1 && Math.max(...systemDemands(perSystem)) > avail) perSystem--;
+
   const systems = Math.ceil(total / perSystem);
-  const W = Math.max(host.clientWidth - 12, 480);
+  const W = Math.max(Math.min(Math.max(...systemDemands(perSystem)), Math.max(avail, 300)), 300);
   const H = systems * 118 + 20;
 
   const renderer = new VF.Renderer(host, VF.Renderer.Backends.SVG);
@@ -666,12 +719,15 @@ async function renderNotation(planned, inst, host){
 
   for (let s = 0; s < systems; s++){
     const barsHere = rows.slice(s * perSystem, (s + 1) * perSystem);
-    const staveW = (W - 16) / barsHere.length;
+    const dem = barsHere.map((b, i) => demandOf(b, s === 0 && i === 0));
+    const scale = (W - 16) / dem.reduce((a, b) => a + b, 0);
+    let x = 8;
     barsHere.forEach((bar, i) => {
       const first = (s === 0 && i === 0);
-      const x = 8 + i * staveW;
+      const staveW = dem[i] * scale;
       const y = 44 + s * 118;
       const stave = new VF.Stave(x, y, staveW);
+      x += staveW;
       if (first) stave.addClef(clef).addTimeSignature('4/4');
       stave.setContext(ctx).draw();
 
@@ -701,14 +757,20 @@ async function renderNotation(planned, inst, host){
     });
   }
   const svg = host.querySelector('svg');
-  if (svg){ svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.removeAttribute('width'); svg.removeAttribute('height'); svg.style.width = '100%'; }
+  if (svg){
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.removeAttribute('width'); svg.removeAttribute('height');
+    svg.style.width = W + 'px';
+    svg.style.maxWidth = '100%';
+    svg.style.height = 'auto';
+  }
 }
 
-function renderNumbers(planned, inst, host){
+function renderNumbers(rows, inst, host){
   host.innerHTML = '';
-  layout(planned, inst).forEach(bar => {
+  rows.forEach(bar => {
     const box = document.createElement('div');
-    box.className = 'barbox' + (bar.length > 1 ? ' two' : '');
+    box.className = 'barbox';
     bar.forEach(cell => {
       const beat = document.createElement('div');
       beat.className = 'beat';
@@ -717,7 +779,7 @@ function renderNumbers(planned, inst, host){
       cs.textContent = cell.symbol;
       const tk = document.createElement('div');
       tk.className = 'tok';
-      tk.textContent = cell.order.join(' · ');
+      tk.textContent = cell.order.join('·');
       beat.append(cs, tk);
       box.append(beat);
     });
@@ -828,6 +890,7 @@ function show(){
   current = planExercise(ex);
   const { L, prog } = current;
   const inst = state.settings.inst;
+  const rows = layout(current, inst);
 
   $('#eyebrow').textContent = 'Stufe ' + L.n + ' · ' + L.head;
   $('#title').textContent = L.title;
@@ -835,7 +898,7 @@ function show(){
 
   // Chips
   const c = [];
-  c.push(chip(prog.name, 'key'));
+  c.push(chip(prog.single ? rows[0][0].symbol + ' · ein Takt' : prog.name, 'key'));
   if (ex.grouping === 'mixed') c.push(chip('Gruppen gemischt'));
   else c.push(chip('Gruppe ' + GROUPINGS[ex.grouping].label + ' · ' + GROUPINGS[ex.grouping].name));
   if (ex.perm === 'mixed') c.push(chip('Formen gemischt'));
@@ -852,13 +915,16 @@ function show(){
   const r = rec(ex.id);
   const again = r.s === 'r' ? '<div class="sub">Diese Übung hattest du schon – jetzt im Tempo, in dem du sie auch spielen willst.</div>' : '';
   $('#instruction').innerHTML = `<b>${L.text}</b>${again}`;
+  const ref = BOOK_REFS[L.n] || '';
+  $('#bookref').textContent = ref;
+  $('#bookref').hidden = !ref;
 
   // Darstellung
   const notesOn = state.settings.view === 'notes';
   $('#paper').hidden = !notesOn;
   $('#numbers').hidden = notesOn;
-  if (notesOn) renderNotation(current, inst, $('#paper'));
-  else renderNumbers(current, inst, $('#numbers'));
+  if (notesOn) renderNotation(rows, inst, $('#paper'));
+  else renderNumbers(rows, inst, $('#numbers'));
 
   const [d, t] = levelCount(L.n);
   const totalM = EXERCISES.filter(e => isMastered(e.id)).length;
@@ -887,7 +953,8 @@ $('#btn-reset').addEventListener('click', async () => {
 let rt;
 window.addEventListener('resize', () => {
   if (state.settings.view !== 'notes' || !current) return;
-  clearTimeout(rt); rt = setTimeout(() => renderNotation(current, state.settings.inst, $('#paper')), 180);
+  clearTimeout(rt);
+  rt = setTimeout(() => renderNotation(layout(current, state.settings.inst), state.settings.inst, $('#paper')), 180);
 });
 
 (async function init(){
