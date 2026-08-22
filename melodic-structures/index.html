@@ -1,0 +1,807 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melodic Structures – Übungstrainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vexflow/4.2.2/vexflow.js"></script>
+
+<style>
+  :root{
+    --ink:#0E1420;
+    --panel:#151E2C;
+    --panel-2:#1B2637;
+    --line:#273346;
+    --paper:#F7F4EC;
+    --brass:#E3A83E;
+    --brass-dim:#8A6821;
+    --teal:#57C7B0;
+    --text:#E6EDF6;
+    --muted:#8C9CB2;
+    --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+    --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink);color:var(--text);font-family:var(--body);
+    -webkit-font-smoothing:antialiased;line-height:1.5;
+    padding:0 0 48px;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+
+  /* ---------- Kopf ---------- */
+  header{padding:26px 0 10px}
+  .brandrow{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{
+    font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.01em;
+    margin:0;text-transform:none;
+  }
+  h1 span{color:var(--muted);font-weight:500}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  select,.toggle button,.ghost{
+    font-family:var(--body);font-size:13px;color:var(--text);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;cursor:pointer;
+  }
+  select:focus-visible,button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  .toggle{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .toggle button{border:0;border-radius:0;background:transparent;color:var(--muted)}
+  .toggle button[aria-pressed="true"]{background:var(--panel-2);color:var(--brass);font-weight:600}
+
+  /* ---------- Signatur: Fortschritts-Notenlinie ---------- */
+  .spine{margin:18px 0 6px;position:relative}
+  .spine svg{width:100%;height:auto;display:block;overflow:visible}
+  .spine .lvl-hit{cursor:pointer}
+  .spine-legend{
+    display:flex;gap:14px;font-size:11.5px;color:var(--muted);
+    font-family:var(--mono);letter-spacing:.02em;margin-top:2px;flex-wrap:wrap
+  }
+  .dotk{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+  /* ---------- Karte ---------- */
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    margin-top:14px;overflow:hidden;
+  }
+  .card-head{
+    padding:16px 20px 12px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--brass);margin:0 0 4px
+  }
+  .card-head h2{font-family:var(--display);font-weight:700;font-size:22px;margin:0;letter-spacing:-.015em}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap
+  }
+  .chip.key{color:var(--brass);border-color:var(--brass-dim)}
+
+  .instruction{padding:14px 20px 0;font-size:15px;max-width:62ch}
+  .instruction b{color:#fff;font-weight:600}
+  .instruction .sub{color:var(--muted);font-size:13.5px;margin-top:6px}
+
+  /* ---------- Notenpapier ---------- */
+  .paper{
+    background:var(--paper);border-radius:10px;margin:16px 20px;padding:6px 4px;
+    overflow-x:auto;
+  }
+  .paper svg{display:block;max-width:100%;height:auto}
+  .paper.empty{
+    display:flex;align-items:center;justify-content:center;min-height:96px;
+    color:#5a5348;font-size:13.5px;text-align:center;padding:20px
+  }
+
+  /* ---------- Zahlenansicht ---------- */
+  .numbers{display:flex;gap:10px;flex-wrap:wrap;padding:4px 20px 0}
+  .barbox{
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2);
+    min-width:118px;flex:1 1 118px
+  }
+  .barbox .cs{font-family:var(--display);font-weight:700;font-size:17px;margin-bottom:6px}
+  .barbox .tok{font-family:var(--mono);font-size:15px;color:var(--brass);letter-spacing:.06em}
+  .barbox + .barbox{}
+  .barbox .cs.second{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+
+  /* ---------- Aktionen ---------- */
+  .actions{display:flex;gap:10px;padding:18px 20px 20px;flex-wrap:wrap}
+  .actions button{
+    flex:1 1 200px;font-family:var(--display);font-weight:700;font-size:15px;
+    border-radius:10px;padding:14px 16px;cursor:pointer;border:1px solid transparent;
+    transition:transform .08s ease, background .15s ease;
+  }
+  .actions button:active{transform:translateY(1px)}
+  #btn-again{background:var(--panel-2);border-color:var(--line);color:var(--text)}
+  #btn-again:hover{background:#22304a}
+  #btn-got{background:var(--teal);color:#06231d}
+  #btn-got:hover{filter:brightness(1.06)}
+  .actions small{display:block;font-family:var(--body);font-weight:400;font-size:12px;opacity:.72;margin-top:2px}
+
+  /* ---------- Fuß ---------- */
+  footer{display:flex;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  .stats{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .ghost{background:transparent;color:var(--muted);font-size:12px}
+  .ghost:hover{color:var(--text)}
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:22px;
+    background:var(--brass);color:#20180a;font-family:var(--display);font-weight:700;
+    padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;
+    transition:opacity .25s ease, bottom .25s ease;z-index:20
+  }
+  .toast.show{opacity:1;bottom:30px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+  @media (max-width:620px){
+    .card-head h2{font-size:19px}
+    .paper{margin:14px 12px}
+    .instruction,.numbers,.actions{padding-left:14px;padding-right:14px}
+    .card-head{padding:14px}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brandrow">
+      <h1>Melodic Structures <span>· Übungstrainer</span></h1>
+      <div class="controls">
+        <select id="sel-inst" aria-label="Stimmung">
+          <option value="C">C (Klavier, Flöte)</option>
+          <option value="Bb">B♭ (Trompete, Tenor)</option>
+          <option value="Eb">E♭ (Alt, Bariton)</option>
+          <option value="bass">Bassschlüssel</option>
+        </select>
+        <div class="toggle" role="group" aria-label="Ansicht">
+          <button id="v-notes" aria-pressed="true">Noten</button>
+          <button id="v-nums" aria-pressed="false">Zahlen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="spine">
+      <svg id="spine" viewBox="0 0 760 92" role="img" aria-label="Fortschritt über alle Stufen"></svg>
+      <div class="spine-legend">
+        <span><i class="dotk" style="background:var(--teal)"></i>sitzt</span>
+        <span><i class="dotk" style="background:var(--brass)"></i>in Arbeit</span>
+        <span><i class="dotk" style="background:#2C384C"></i>offen</span>
+        <span id="lvl-name"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow" id="eyebrow">Stufe 1</p>
+        <h2 id="title">…</h2>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div class="instruction" id="instruction"></div>
+
+    <div class="paper" id="paper"></div>
+    <div class="numbers" id="numbers" hidden></div>
+
+    <div class="actions">
+      <button id="btn-again">Nochmal üben<small>kommt bald wieder</small></button>
+      <button id="btn-got">Sitzt<small>aus dem Umlauf nehmen</small></button>
+    </div>
+  </main>
+
+  <footer>
+    <div class="stats" id="stats"></div>
+    <button class="ghost" id="btn-reset">Fortschritt zurücksetzen</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   1 · TONHÖHEN-MODELL
+   Note = {l: Buchstabe 0..6 (C..B), a: Vorzeichen -2..2, o: Oktave}
+   ========================================================= */
+const LETTERS = ['C','D','E','F','G','A','B'];
+const LPC     = [0,2,4,5,7,9,11];
+const MAJ     = [0,2,4,5,7,9,11];
+
+const pc   = n => (LPC[n.l] + n.a + 120) % 12;
+const midi = n => (n.o + 1) * 12 + LPC[n.l] + n.a;
+const cp   = n => ({l:n.l, a:n.a, o:n.o});
+
+function noteName(n){
+  return LETTERS[n.l] + (n.a > 0 ? '♯'.repeat(n.a) : n.a < 0 ? '♭'.repeat(-n.a) : '');
+}
+function vexKey(n){
+  const acc = n.a > 0 ? '#'.repeat(n.a) : n.a < 0 ? 'b'.repeat(-n.a) : '';
+  return LETTERS[n.l].toLowerCase() + acc + '/' + n.o;
+}
+function parseRoot(s){
+  const l = LETTERS.indexOf(s[0]);
+  let a = 0;
+  for (const c of s.slice(1)) a += (c === '#' ? 1 : -1);
+  return {l, a, o:4};
+}
+/* Dur-Tonleiter mit korrekter Schreibweise */
+function majorScale(root){
+  const out = [];
+  const rpc = LPC[root.l] + root.a;
+  for (let i = 0; i < 7; i++){
+    const l = (root.l + i) % 7;
+    const bump = Math.floor((root.l + i) / 7);
+    let diff = (rpc + MAJ[i]) - LPC[l];
+    while (diff >  6) diff -= 12;
+    while (diff < -6) diff += 12;
+    out.push({l, a:diff, o:root.o + bump});
+  }
+  return out;
+}
+const ALTER = {                       // Abweichungen von der Dur-Tonleiter
+  'maj7' : {},
+  '7'    : {6:-1},
+  'm7'   : {2:-1, 6:-1},
+  'm7b5' : {1:-1, 2:-1, 4:-1, 5:-1, 6:-1},
+  '7b9'  : {1:-1, 5:-1, 6:-1}
+};
+const REF_MINOR = new Set(['m7','m7b5']);   // Bezugsleiter für Vorzeichen im Zahlensystem
+
+function chordScale(root, q){
+  const s = majorScale(root).map(cp);
+  const alt = ALTER[q] || {};
+  for (const k in alt) s[k].a += alt[k];
+  return s;
+}
+function refScale(root, q){
+  const s = majorScale(root).map(cp);
+  if (REF_MINOR.has(q)) { s[2].a -= 1; s[6].a -= 1; }   // dorisch
+  return s;
+}
+/* Ein Zahlensymbol ("1", "b9", "#11", "13") → Note */
+function resolveToken(tok, root, q){
+  const m = /^([b#]*)(\d+)$/.exec(tok);
+  const accs = m[1], num = parseInt(m[2], 10);
+  const base = (num - 1) % 7, oct = Math.floor((num - 1) / 7);
+  const scale = accs ? refScale(root, q) : chordScale(root, q);
+  const n = cp(scale[base]);
+  n.o += oct;
+  for (const c of accs) n.a += (c === '#' ? 1 : -1);
+  return n;
+}
+/* Die vier Töne einer Gruppe, immer aufsteigend gestapelt */
+function groupPitches(tokens, root, q){
+  const out = [];
+  for (const t of tokens){
+    const n = resolveToken(t, root, q);
+    if (out.length){
+      while (midi(n) <= midi(out[out.length - 1])) n.o++;
+    }
+    out.push(n);
+  }
+  return out;
+}
+/* Umkehrung k: die k tiefsten Töne eine Oktave nach oben.
+   Die Zuordnung Index → Stufenzahl bleibt erhalten, damit die
+   Permutation weiter auf dieselben Zahlen zeigt. */
+function invert(set, k){
+  const s = set.map(cp);
+  for (let i = 0; i < k; i++) s[i].o++;
+  return s;
+}
+/* Transposition für die notierte Stimme */
+const TRANSPOSE = { C:[0,0], Bb:[1,2], Eb:[5,9], bass:[0,0] };
+function transposeNote(n, inst){
+  const [dl, ds] = TRANSPOSE[inst];
+  const absTarget = midi(n) + ds;
+  const l = (n.l + dl) % 7;
+  const letterSteps = n.l + dl;
+  let o = n.o + Math.floor(letterSteps / 7);
+  let a = absTarget - ((o + 1) * 12 + LPC[l]);
+  while (a >  6) { o++; a = absTarget - ((o + 1) * 12 + LPC[l]); }
+  while (a < -6) { o--; a = absTarget - ((o + 1) * 12 + LPC[l]); }
+  return {l, a, o};
+}
+
+/* =========================================================
+   2 · AKKORDE & GRUPPEN
+   ========================================================= */
+const QSUFFIX = { 'maj7':'∆', '7':'7', 'm7':'-7', 'm7b5':'ø', '7b9':'7♭9' };
+function chordSymbol(ch, inst){
+  const r = transposeNote({...ch.root, o:4}, inst);
+  return noteName(r) + QSUFFIX[ch.q];
+}
+function parseChord(s){
+  const m = /^([A-G][b#]?)(maj7|m7b5|m7|7b9|7)$/.exec(s.trim());
+  if (!m) throw new Error('Akkord unlesbar: ' + s);
+  return { root: parseRoot(m[1]), q: m[2] };
+}
+
+const GROUPINGS = {
+  '1-5':  { label:'1-5',  name:'Grundgruppe',       tok:{ 'maj7':['1','2','3','5'],      '7':['1','2','3','5'],      'm7':['1','3','4','5'],     'm7b5':['1','3','4','b5'],       '7b9':['1','b2','3','5'] } },
+  '5-9':  { label:'5-9',  name:'Mittellage',        tok:{ 'maj7':['5','6','7','9'],      '7':['5','6','7','9'],      'm7':['5','7','8','9'],     'm7b5':['5','7','8','b9'],       '7b9':['5','b6','7','b9'] } },
+  '9-13': { label:'9-13', name:'Upper Structure',   tok:{ 'maj7':['9','10','#11','13'],  '7':['9','10','#11','13'],  'm7':['9','11','12','13'],  'm7b5':['b9','11','b12','b13'],  '7b9':['b9','10','#11','b13'] } },
+  '3-7':  { label:'3-7',  name:'Guide Tones',       tok:{ 'maj7':['3','5','6','7'],      '7':['3','5','6','7'],      'm7':['3','4','5','7'],     'm7b5':['3','4','b5','7'],       '7b9':['3','5','b6','7'] } },
+  '7-11': { label:'7-11', name:'Septime aufwärts',  tok:{ 'maj7':['7','9','10','#11'],   '7':['7','9','10','#11'],   'm7':['7','8','9','11'],    'm7b5':['7','8','b9','11'],      '7b9':['7','b9','10','#11'] } },
+  '4-8':  { label:'4-8',  name:'Quarte aufwärts',   tok:{ 'maj7':['#4','6','7','8'],     '7':['#4','6','7','8'],     'm7':['4','5','6','8'],     'm7b5':['4','b5','b6','8'],      '7b9':['#4','b6','7','8'] } },
+  '6-3':  { label:'6-3',  name:'Sexte aufwärts',    tok:{ 'maj7':['6','7','1','3'],      '7':['6','7','1','3'],      'm7':['6','1','2','3'],     'm7b5':['b6','1','b2','3'],      '7b9':['b6','7','1','3'] } }
+};
+
+/* alle 24 Permutationen als Index-Muster über [0,1,2,3] */
+const PERMS = (() => {
+  const out = [];
+  const rec = (rest, acc) => {
+    if (!rest.length) { out.push(acc); return; }
+    rest.forEach((x,i) => rec(rest.filter((_,j) => j !== i), [...acc, x]));
+  };
+  rec([0,1,2,3], []);
+  return out;
+})();
+const permKey = p => p.join('');
+const PERM_CORE = ['0123','1032','2310','3210'];      // Grund + die drei vom Buch empfohlenen
+const permByKey = k => PERMS[PERMS.findIndex(p => permKey(p) === k)];
+function permLabel(permIdx, tokens){
+  return permIdx.map(i => tokens[i]).join('-');
+}
+
+/* =========================================================
+   3 · CHANGES (eigene Übungsprogressionen, klingende Notation)
+   ========================================================= */
+function P(id, name, spec){
+  return { id, name, bars: spec.split('|').map(b => b.trim().split(/\s+/).map(parseChord)) };
+}
+const PROGS = {
+  /* Einzelakkorde */
+  s_maj : P('s_maj','C∆ – zwei Takte',      'Cmaj7|Cmaj7'),
+  s_dom : P('s_dom','F7 – zwei Takte',      'F7|F7'),
+  s_min : P('s_min','D-7 – zwei Takte',     'Dm7|Dm7'),
+  s_hd  : P('s_hd','Bø – zwei Takte',       'Bm7b5|Bm7b5'),
+  s_b9  : P('s_b9','A7♭9 – zwei Takte',     'A7b9|A7b9'),
+  s_maj2: P('s_maj2','E♭∆ – zwei Takte',    'Ebmaj7|Ebmaj7'),
+
+  /* II-V-I in Dur */
+  t_C   : P('t_C','II-V-I in C',            'Dm7|G7|Cmaj7|Cmaj7'),
+  t_F   : P('t_F','II-V-I in F',            'Gm7|C7|Fmaj7|Fmaj7'),
+  t_Bb  : P('t_Bb','II-V-I in B♭',          'Cm7|F7|Bbmaj7|Bbmaj7'),
+  t_Eb  : P('t_Eb','II-V-I in E♭',          'Fm7|Bb7|Ebmaj7|Ebmaj7'),
+  t_G   : P('t_G','II-V-I in G',            'Am7|D7|Gmaj7|Gmaj7'),
+  t_D   : P('t_D','II-V-I in D',            'Em7|A7|Dmaj7|Dmaj7'),
+  t_Ab  : P('t_Ab','II-V-I in A♭',          'Bbm7|Eb7|Abmaj7|Abmaj7'),
+  t_E   : P('t_E','II-V-I in E',            'F#m7|B7|Emaj7|Emaj7'),
+
+  /* II-V-i in Moll */
+  m_C   : P('m_C','II-V-i in c-Moll',       'Dm7b5|G7b9|Cm7|Cm7'),
+  m_F   : P('m_F','II-V-i in f-Moll',       'Gm7b5|C7b9|Fm7|Fm7'),
+  m_A   : P('m_A','II-V-i in a-Moll',       'Bm7b5|E7b9|Am7|Am7'),
+
+  /* Turnarounds & dichte Changes */
+  tn_C  : P('tn_C','Turnaround in C',       'Cmaj7 A7b9|Dm7 G7|Cmaj7 A7b9|Dm7 G7'),
+  tn_F  : P('tn_F','Turnaround in F',       'Fmaj7 D7b9|Gm7 C7|Fmaj7 D7b9|Gm7 C7'),
+  dense : P('dense','Zwei Akkorde pro Takt','Ebmaj7 Am7|D7 Gmaj7|Cm7 F7|Bbmaj7 Bbmaj7'),
+
+  /* Blues in F, in Vierergruppen */
+  bl1   : P('bl1','Blues in F · T. 1–4',    'F7|Bb7|F7|Cm7 F7'),
+  bl2   : P('bl2','Blues in F · T. 5–8',    'Bb7|Bb7|F7|D7b9'),
+  bl3   : P('bl3','Blues in F · T. 9–12',   'Gm7|C7|F7 D7b9|Gm7 C7'),
+
+  /* Tonartzentren */
+  k_thirds: P('k_thirds','Terzzirkel',      'Fmaj7 A7|Dbmaj7 E7|Amaj7 C7|Fmaj7'),
+  k_far   : P('k_far','Entfernte Dur-Zentren','Dbmaj7|Gmaj7|Bmaj7|Fmaj7'),
+  k_min   : P('k_min','Moll-Zirkel',        'Cm7|F#m7|Am7|Ebm7'),
+  k_dom   : P('k_dom','Dominant-♭9-Zirkel', 'G7b9|Db7b9|E7b9|Bb7b9'),
+  k_hd    : P('k_hd','Halbverminderte',     'Cm7b5|F#m7b5|Am7b5|Ebm7b5'),
+  k_one   : P('k_one','Ein Akkord, vier Takte','Gmaj7|Gmaj7|Gmaj7|Gmaj7')
+};
+
+/* =========================================================
+   4 · CURRICULUM
+   ========================================================= */
+const LEVELS = [
+  { n:1,  title:'Die Grundgruppe 1-2-3-5',
+    head:'Vier Töne pro Akkord',
+    text:'Spiele die Gruppe aufwärts durch die Changes, achtel-genau und langsam. Höre jeden einzelnen Ton gegen den Akkord – das ist Gehörbildung, nicht Fingerübung.',
+    groupings:['1-5'], perms:['0123'], progs:['s_maj','s_dom','s_min','s_hd','s_b9','s_maj2'] },
+
+  { n:2,  title:'1-5 durch II-V-I',
+    head:'Der Wechsel zwischen Dur, Moll und Dominante',
+    text:'Auf Moll-Akkorden wird 1-2-3-5 zu 1-3-4-5. Achte auf die Verbindungsstelle: wie weit springst du vom letzten Ton des einen Akkords zum ersten des nächsten?',
+    groupings:['1-5'], perms:['0123'], progs:['t_C','t_F','t_Bb','t_Eb','t_G','t_D','t_Ab','t_E','m_C','m_A'] },
+
+  { n:3,  title:'Vier Permutationen',
+    head:'Dieselben Töne, andere Form',
+    text:'Übe die Permutation über die kompletten Changes, bis sie ohne Nachdenken läuft. Erst dann die nächste.',
+    groupings:['1-5'], perms:PERM_CORE, progs:['t_C','t_Bb','tn_C','m_C'] },
+
+  { n:4,  title:'Permutationen mischen',
+    head:'Formen frei kombinieren',
+    text:'Pro Akkord eine andere Form. Denke in Konturen, nicht in Zahlen. Die Vorlage zeigt eine mögliche Lösung – spiele bewusst auch andere.',
+    groupings:['1-5'], perms:['mixed'], progs:['t_F','tn_F','bl1','bl2','bl3','dense'] },
+
+  { n:5,  title:'Visualisieren',
+    head:'Ohne Instrument, zehn Minuten',
+    text:'Sitze aufrecht, Instrument weg. Sieh die Changes zuerst als Block-Akkorde vor dir, dann die Achtelkette darüber. Höre mit. Erst danach zum Instrument greifen und dieselbe Stelle spielen.',
+    groupings:['1-5'], perms:['0123','mixed'], progs:['t_C','t_Eb','bl1','k_thirds'], visual:true },
+
+  { n:6,  title:'Editing – Rhythmus',
+    head:'Töne weglassen statt hinzufügen',
+    text:'Spiele die Vorlage, aber lass pro Akkord ein bis drei Töne weg. Setze Phrasen auf und ab dem Off ein, benutze auch Tonwiederholungen. Die Pausen sind das Solo.',
+    groupings:['1-5'], perms:['mixed'], progs:['t_G','bl2','tn_C','k_one'], edit:true },
+
+  { n:7,  title:'Tonartzentren',
+    head:'Schnelle Modulation, langsame Harmonik',
+    text:'Bei dichten Changes reicht eine einfache Form pro Akkord – die Changes spielen sich dann von selbst. Bei einem Akkord über vier Takte brauchst du dagegen Abwechslung in den Formen.',
+    groupings:['1-5'], perms:['mixed'], progs:['k_thirds','k_far','k_min','k_dom','k_hd','k_one'] },
+
+  { n:8,  title:'Umkehrungen',
+    head:'Derselbe Vierklang, anderer Basston',
+    text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Übe eine Permutation pro Umkehrung – die restlichen kommen dann von allein.',
+    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Bb','bl1'], inversions:[1,2,3] },
+
+  { n:9,  title:'Die 5-9-Gruppe',
+    head:'5-6-7-9 · Moll 5-7-8-9',
+    text:'Klingt wie die Grundgruppe eine Quinte höher. Spiele dazu unbedingt den Akkord mit oder höre ihn dir vor, sonst hörst du nur eine andere Tonart.',
+    groupings:['5-9'], perms:['0123','1032','3210','mixed'], progs:['t_C','t_Bb','m_C','bl1','tn_C'] },
+
+  { n:10, title:'Upper Structures 9-13',
+    head:'9-10-♯11-13 · Moll 9-11-12-13',
+    text:'Die Farbtöne des Akkords. Am Anfang klingen sie fremd – das legt sich. Immer mit Akkord darunter üben, sonst verliert die Übung ihren Sinn.',
+    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_C','t_Eb','m_A','bl3','k_far'] },
+
+  { n:11, title:'Weitere Gruppen',
+    head:'3-7 · 7-11 · 4-8 · 6-3',
+    text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Suche dir die Gruppe aus, die dir am fremdesten ist.',
+    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'], progs:['t_C','t_F','bl1','k_min'] },
+
+  { n:12, title:'Gruppen mischen',
+    head:'Stimmführung statt Schema',
+    text:'Pro Akkord die Gruppe wählen, die vom letzten Ton aus am kürzesten liegt. Danach frei: Editing und Umkehrungen dazu. Ab hier wird aus der Übung ein Solo.',
+    groupings:['mixed'], perms:['mixed'], progs:['t_C','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], edit:true }
+];
+
+/* =========================================================
+   5 · ÜBUNGEN ERZEUGEN (deterministisch, stabile IDs)
+   ========================================================= */
+function hash(str){
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function rng(seed){
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const CAP = 14;
+function buildExercises(){
+  const all = [];
+  for (const L of LEVELS){
+    const list = [];
+    const invs = L.inversions || [0];
+    for (const pgId of L.progs)
+      for (const g of L.groupings)
+        for (const pk of L.perms)
+          for (const inv of invs)
+            list.push({
+              id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
+              level: L.n, prog: pgId, grouping: g, perm: pk, inv
+            });
+    // gleichmäßig ausdünnen statt hart abschneiden
+    let picked = list;
+    if (list.length > CAP){
+      picked = [];
+      const step = list.length / CAP;
+      for (let i = 0; i < CAP; i++) picked.push(list[Math.floor(i * step)]);
+    }
+    all.push(...picked);
+  }
+  return all;
+}
+const EXERCISES = buildExercises();
+const byLevel = n => EXERCISES.filter(e => e.level === n);
+
+/* Für eine Übung: pro Akkord Gruppe + Permutation festlegen */
+function planExercise(ex){
+  const prog = PROGS[ex.prog];
+  const L = LEVELS[ex.level - 1];
+  const r = rng(hash(ex.id));
+  const groupPool = ex.grouping === 'mixed' ? ['1-5','5-9','9-13','3-7','7-11'] : [ex.grouping];
+  const plan = [];
+  prog.bars.forEach((bar, bi) => {
+    const row = [];
+    bar.forEach((ch, ci) => {
+      const gId = groupPool.length === 1 ? groupPool[0] : groupPool[Math.floor(r() * groupPool.length) % groupPool.length];
+      const pIdx = ex.perm === 'mixed' ? PERMS[Math.floor(r() * 24) % 24] : permByKey(ex.perm);
+      const tokens = GROUPINGS[gId].tok[ch.q];
+      row.push({ ch, gId, pIdx, tokens, order: pIdx.map(i => tokens[i]) });
+    });
+    plan.push(row);
+  });
+  return { ex, L, prog, plan };
+}
+
+/* Klingende Tonhöhen inkl. Stimmführung und Lage */
+function pitchesFor(planned, inst){
+  const bass = inst === 'bass';
+  const lo = bass ? 40 : 55, hi = bass ? 65 : 81;
+  let prev = bass ? 45 : 64;
+  const out = [];
+  planned.plan.forEach(bar => {
+    const row = [];
+    bar.forEach(cell => {
+      let set = groupPitches(cell.tokens, cell.ch.root, cell.ch.q);
+      if (planned.ex.inv) set = invert(set, planned.ex.inv);
+      set = set.map(n => transposeNote(n, inst));
+      // Oktavlage: möglichst nah an den vorigen Tönen, dann in den Umfang klemmen
+      const mids = set.map(midi);
+      const min = Math.min(...mids), max = Math.max(...mids);
+      let best = 0, bestD = Infinity;
+      for (let k = -3; k <= 3; k++){
+        if (min + 12 * k < lo || max + 12 * k > hi) continue;
+        const d = Math.abs(mids[cell.pIdx[0]] + 12 * k - prev);
+        if (d < bestD){ bestD = d; best = k; }
+      }
+      const shifted = set.map(n => ({...n, o:n.o + best}));
+      prev = midi(shifted[cell.pIdx[3]]);
+      row.push({ ...cell, pitches: cell.pIdx.map(i => shifted[i]) });
+    });
+    out.push(row);
+  });
+  return out;
+}
+
+/* =========================================================
+   6 · NOTENSATZ (VexFlow)
+   ========================================================= */
+function renderNotation(planned, inst, host){
+  host.classList.remove('empty');
+  host.innerHTML = '';
+  if (typeof Vex === 'undefined'){
+    host.classList.add('empty');
+    host.textContent = 'Notensatz konnte nicht geladen werden – wechsle auf die Zahlenansicht.';
+    return;
+  }
+  const VF = Vex.Flow;
+  const rows = pitchesFor(planned, inst);
+  const clef = inst === 'bass' ? 'bass' : 'treble';
+
+  const total = rows.length;
+  const perSystem = (host.clientWidth < 520 && total > 2) ? 2 : Math.min(total, 4);
+  const systems = Math.ceil(total / perSystem);
+  const W = Math.max(host.clientWidth - 12, 480);
+  const H = systems * 118 + 20;
+
+  const renderer = new VF.Renderer(host, VF.Renderer.Backends.SVG);
+  renderer.resize(W, H);
+  const ctx = renderer.getContext();
+  ctx.setFont('IBM Plex Sans', 12);
+
+  for (let s = 0; s < systems; s++){
+    const barsHere = rows.slice(s * perSystem, (s + 1) * perSystem);
+    const staveW = (W - 16) / barsHere.length;
+    barsHere.forEach((bar, i) => {
+      const first = (s === 0 && i === 0);
+      const x = 8 + i * staveW;
+      const y = 44 + s * 118;
+      const stave = new VF.Stave(x, y, staveW);
+      if (first) stave.addClef(clef).addTimeSignature('4/4');
+      stave.setContext(ctx).draw();
+
+      const notes = [], beams = [];
+      bar.forEach(cell => {
+        const grp = cell.pitches.map(p => {
+          const n = new VF.StaveNote({ clef, keys:[vexKey(p)], duration:'8' });
+          return n;
+        });
+        const ann = new VF.Annotation(chordSymbol(cell.ch, inst))
+          .setFont('Space Grotesk, sans-serif', 13, 'bold')
+          .setVerticalJustification(VF.Annotation.VerticalJustify.TOP);
+        grp[0].addModifier(ann, 0);
+        notes.push(...grp);
+        beams.push(grp);
+      });
+      if (bar.length === 1) notes.push(new VF.StaveNote({ clef, keys:[clef === 'bass' ? 'd/3' : 'b/4'], duration:'2r' }));
+
+      const voice = new VF.Voice({ num_beats:4, beat_value:4 }).setStrict(false).addTickables(notes);
+      VF.Accidental.applyAccidentals([voice], 'C');
+      new VF.Formatter().joinVoices([voice]).format([voice], staveW - (first ? 74 : 26));
+      voice.draw(ctx, stave);
+      beams.forEach(g => new VF.Beam(g).setContext(ctx).draw());
+    });
+  }
+  const svg = host.querySelector('svg');
+  if (svg){ svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.removeAttribute('width'); svg.removeAttribute('height'); svg.style.width = '100%'; }
+}
+
+function renderNumbers(planned, inst, host){
+  host.innerHTML = '';
+  planned.plan.forEach(bar => {
+    const box = document.createElement('div');
+    box.className = 'barbox';
+    bar.forEach((cell, i) => {
+      const cs = document.createElement('div');
+      cs.className = 'cs' + (i ? ' second' : '');
+      cs.textContent = chordSymbol(cell.ch, inst);
+      const tk = document.createElement('div');
+      tk.className = 'tok';
+      tk.textContent = cell.order.join(' · ');
+      box.append(cs, tk);
+    });
+    host.append(box);
+  });
+}
+
+/* =========================================================
+   7 · FORTSCHRITT & AUSWAHL
+   ========================================================= */
+const KEY = 'bergonzi-v1';
+let state = { settings:{ inst:'Bb', view:'notes' }, level:1, counter:0, prog:{}, lastId:null };
+let current = null;
+
+/* Speicher: nutzt window.storage, wo es das gibt, sonst den Browser-Speicher.
+   So läuft dieselbe Datei innerhalb von Claude und als statische Seite. */
+const store = (typeof window.storage !== 'undefined' && window.storage) ? {
+  async get(){ const r = await window.storage.get(KEY); return r ? r.value : null; },
+  async set(v){ await window.storage.set(KEY, v); }
+} : {
+  async get(){ return localStorage.getItem(KEY); },
+  async set(v){ localStorage.setItem(KEY, v); }
+};
+async function load(){
+  try {
+    const v = await store.get();
+    if (v) state = Object.assign(state, JSON.parse(v));
+  } catch (e) { /* erster Start: nichts gespeichert */ }
+}
+async function save(){
+  try { await store.set(JSON.stringify(state)); }
+  catch (e) { console.warn('Fortschritt nicht gespeichert', e); }
+}
+const rec = id => state.prog[id] || { s:'n', due:-1, reps:0 };
+const isMastered = id => rec(id).s === 'm';
+
+function levelDone(n){ const p = byLevel(n); return p.length > 0 && p.every(e => isMastered(e.id)); }
+function levelCount(n){ const p = byLevel(n); return [p.filter(e => isMastered(e.id)).length, p.length]; }
+function pick(){
+  const pool = byLevel(state.level);
+  const open = pool.filter(e => !isMastered(e.id));
+  let cands = open.length ? open : pool;          // alles gemeistert → Wiederholungsrunde
+  const due = cands.filter(e => rec(e.id).due <= state.counter);
+  let list = due.length ? due : cands;
+  if (list.length > 1 && state.lastId) {
+    const f = list.filter(e => e.id !== state.lastId);
+    if (f.length) list = f;
+  }
+  list = list.slice().sort((a,b) => (rec(a.id).due - rec(b.id).due) || (hash(a.id) - hash(b.id)));
+  return list[0];
+}
+
+async function answer(mastered){
+  if (!current) return;
+  const id = current.ex.id, r = rec(id);
+  state.prog[id] = { s: mastered ? 'm' : 'r', due: state.counter + (mastered ? 40 : 3), reps: r.reps + 1 };
+  state.lastId = id;
+  state.counter++;
+
+  if (levelDone(state.level) && state.level < LEVELS.length){
+    state.level++;
+    toast('Stufe ' + state.level + ' freigeschaltet: ' + LEVELS[state.level - 1].title);
+  }
+  await save();
+  show();
+}
+
+/* =========================================================
+   8 · OBERFLÄCHE
+   ========================================================= */
+const $ = s => document.querySelector(s);
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function drawSpine(){
+  const svg = $('#spine');
+  const N = LEVELS.length, x0 = 44, dx = (760 - 2 * x0) / (N - 1);
+  const yTop = 30, yBot = 62, dy = (yBot - yTop) / (N - 1);
+  let s = '';
+  for (let i = 0; i < 5; i++)
+    s += `<line x1="12" y1="${30 + i * 8}" x2="748" y2="${30 + i * 8}" stroke="#273346" stroke-width="1"/>`;
+  LEVELS.forEach((L, i) => {
+    const x = x0 + i * dx, y = yBot - i * dy;
+    const [d, t] = levelCount(L.n);
+    const done = d === t, started = d > 0;
+    const fill = done ? '#57C7B0' : started ? '#E3A83E' : '#2C384C';
+    const cur = L.n === state.level;
+    if (cur) s += `<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="#E3A83E" stroke-width="1.5" opacity=".85"/>`;
+    s += `<ellipse cx="${x}" cy="${y}" rx="6.6" ry="5" fill="${fill}" transform="rotate(-20 ${x} ${y})"/>`;
+    s += `<text x="${x}" y="86" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11"
+            fill="${cur ? '#E3A83E' : '#5D6C81'}">${L.n}</text>`;
+    s += `<rect class="lvl-hit" data-lvl="${L.n}" x="${x - 15}" y="14" width="30" height="78" fill="transparent"><title>Stufe ${L.n}: ${L.title} (${d}/${t})</title></rect>`;
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('.lvl-hit').forEach(r => r.addEventListener('click', () => {
+    state.level = +r.dataset.lvl; state.lastId = null; save(); show();
+  }));
+}
+
+function chip(text, cls){ return `<span class="chip${cls ? ' ' + cls : ''}">${text}</span>`; }
+
+function show(){
+  const ex = pick();
+  if (!ex) return;
+  current = planExercise(ex);
+  const { L, prog } = current;
+  const inst = state.settings.inst;
+
+  $('#eyebrow').textContent = 'Stufe ' + L.n + ' · ' + L.head;
+  $('#title').textContent = L.title;
+  $('#lvl-name').textContent = '— aktuell: ' + L.title;
+
+  // Chips
+  const c = [];
+  c.push(chip(prog.name, 'key'));
+  if (ex.grouping === 'mixed') c.push(chip('Gruppen gemischt'));
+  else c.push(chip('Gruppe ' + GROUPINGS[ex.grouping].label + ' · ' + GROUPINGS[ex.grouping].name));
+  if (ex.perm === 'mixed') c.push(chip('Formen gemischt'));
+  else if (ex.grouping !== 'mixed'){
+    const g = GROUPINGS[ex.grouping], p = permByKey(ex.perm);
+    c.push(chip(permLabel(p, g.tok['maj7']) + '  |  ' + permLabel(p, g.tok['m7']) + ' (Moll)'));
+  }
+  if (ex.inv) c.push(chip(ex.inv + '. Umkehrung'));
+  if (L.edit) c.push(chip('Editing'));
+  if (L.visual) c.push(chip('ohne Instrument'));
+  $('#chips').innerHTML = c.join('');
+
+  // Anweisung
+  const r = rec(ex.id);
+  const again = r.s === 'r' ? '<div class="sub">Diese Übung hattest du schon – jetzt im Tempo, in dem du sie auch spielen willst.</div>' : '';
+  $('#instruction').innerHTML = `<b>${L.text}</b>${again}`;
+
+  // Darstellung
+  const notesOn = state.settings.view === 'notes';
+  $('#paper').hidden = !notesOn;
+  $('#numbers').hidden = notesOn;
+  if (notesOn) renderNotation(current, inst, $('#paper'));
+  else renderNumbers(current, inst, $('#numbers'));
+
+  const [d, t] = levelCount(L.n);
+  const totalM = EXERCISES.filter(e => isMastered(e.id)).length;
+  $('#stats').textContent = `Stufe ${L.n}: ${d}/${t} sitzen · insgesamt ${totalM}/${EXERCISES.length} · ${state.counter} Durchgänge`;
+
+  drawSpine();
+}
+
+/* Steuerung */
+$('#btn-got').addEventListener('click', () => answer(true));
+$('#btn-again').addEventListener('click', () => answer(false));
+$('#sel-inst').addEventListener('change', e => { state.settings.inst = e.target.value; save(); show(); });
+function setView(v){
+  state.settings.view = v;
+  $('#v-notes').setAttribute('aria-pressed', v === 'notes');
+  $('#v-nums').setAttribute('aria-pressed', v === 'nums');
+  save(); show();
+}
+$('#v-notes').addEventListener('click', () => setView('notes'));
+$('#v-nums').addEventListener('click', () => setView('nums'));
+$('#btn-reset').addEventListener('click', async () => {
+  if (!confirm('Gesamten Fortschritt löschen?')) return;
+  state.prog = {}; state.counter = 0; state.level = 1; state.lastId = null;
+  await save(); show(); toast('Fortschritt zurückgesetzt');
+});
+let rt;
+window.addEventListener('resize', () => {
+  if (state.settings.view !== 'notes' || !current) return;
+  clearTimeout(rt); rt = setTimeout(() => renderNotation(current, state.settings.inst, $('#paper')), 180);
+});
+
+(async function init(){
+  await load();
+  state.level = Math.min(state.level || 1, LEVELS.length);
+  $('#sel-inst').value = state.settings.inst;
+  $('#v-notes').setAttribute('aria-pressed', state.settings.view === 'notes');
+  $('#v-nums').setAttribute('aria-pressed', state.settings.view === 'nums');
+  show();
+})();
+</script>
