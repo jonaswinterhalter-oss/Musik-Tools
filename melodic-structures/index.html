@@ -4,7 +4,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vexflow/4.2.2/vexflow.js"></script>
 
 <style>
   :root{
@@ -93,7 +92,7 @@
   }
   .paper svg{display:block;max-width:100%;height:auto}
   .paper.empty{
-    display:flex;align-items:center;justify-content:center;min-height:96px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;
     color:#5a5348;font-size:13.5px;text-align:center;padding:20px
   }
 
@@ -553,14 +552,63 @@ function pitchesFor(planned, inst){
 /* =========================================================
    6 · NOTENSATZ (VexFlow)
    ========================================================= */
-function renderNotation(planned, inst, host){
-  host.classList.remove('empty');
+/* Die Bibliothek wird zur Laufzeit geladen. Mehrere Quellen, weil je nach
+   Umgebung nicht jedes CDN erreichbar ist. */
+const VEX_SOURCES = [
+  'https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js',
+  'https://unpkg.com/vexflow@4.2.2/build/cjs/vexflow.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/vexflow/4.2.2/vexflow.js'
+];
+let vexPromise = null;
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => res(); s.onerror = () => rej(new Error(src));
+    document.head.appendChild(s);
+  });
+}
+async function loadVex(){
+  if (typeof window.Vex !== 'undefined') return true;
+  for (const src of VEX_SOURCES){
+    try {
+      await loadScript(src);
+      if (typeof window.Vex !== 'undefined') return true;
+    } catch (e) { console.warn('Notensatz-Quelle nicht erreichbar:', src); }
+  }
+  return false;
+}
+function paperMessage(host, text, withRetry){
+  host.classList.add('empty');
   host.innerHTML = '';
-  if (typeof Vex === 'undefined'){
-    host.classList.add('empty');
-    host.textContent = 'Notensatz konnte nicht geladen werden – wechsle auf die Zahlenansicht.';
+  const p = document.createElement('div');
+  p.textContent = text;
+  host.append(p);
+  if (withRetry){
+    const b = document.createElement('button');
+    b.className = 'ghost';
+    b.style.cssText = 'margin-top:10px;border:1px solid #cfc7b6;color:#3c372e';
+    b.textContent = 'Erneut versuchen';
+    b.addEventListener('click', () => { vexPromise = null; show(); });
+    host.append(b);
+  }
+}
+
+let renderToken = 0;
+async function renderNotation(planned, inst, host){
+  const token = ++renderToken;
+  paperMessage(host, 'Notensatz wird geladen …', false);
+
+  if (!vexPromise) vexPromise = loadVex();
+  const ok = await vexPromise;
+  if (token !== renderToken) return;            // inzwischen kam eine neue Übung
+  if (!ok){
+    paperMessage(host, 'Der Notensatz lässt sich gerade nicht laden. Die Zahlenansicht funktioniert auch ohne Netz.', true);
     return;
   }
+
+  host.classList.remove('empty');
+  host.innerHTML = '';
   const VF = Vex.Flow;
   const rows = pitchesFor(planned, inst);
   const clef = inst === 'bass' ? 'bass' : 'treble';
@@ -602,11 +650,14 @@ function renderNotation(planned, inst, host){
       });
       if (bar.length === 1) notes.push(new VF.StaveNote({ clef, keys:[clef === 'bass' ? 'd/3' : 'b/4'], duration:'2r' }));
 
+      // Balken müssen vor dem Zeichnen existieren – sonst bekommt jede Achtel eine Fahne.
+      const beamObjs = beams.map(g => new VF.Beam(g));
+
       const voice = new VF.Voice({ num_beats:4, beat_value:4 }).setStrict(false).addTickables(notes);
       VF.Accidental.applyAccidentals([voice], 'C');
       new VF.Formatter().joinVoices([voice]).format([voice], staveW - (first ? 74 : 26));
       voice.draw(ctx, stave);
-      beams.forEach(g => new VF.Beam(g).setContext(ctx).draw());
+      beamObjs.forEach(b => b.setContext(ctx).draw());
     });
   }
   const svg = host.querySelector('svg');
