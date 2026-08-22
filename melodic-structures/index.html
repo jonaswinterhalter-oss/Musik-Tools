@@ -100,12 +100,13 @@
   .numbers{display:flex;gap:10px;flex-wrap:wrap;padding:4px 20px 0}
   .barbox{
     border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2);
-    min-width:118px;flex:1 1 118px
+    min-width:118px;flex:1 1 118px;display:flex;gap:12px;align-items:flex-start
   }
+  .barbox.two{flex:1 1 220px}
+  .barbox .beat{flex:1 1 0;min-width:0}
+  .barbox .beat + .beat{border-left:1px dashed var(--line);padding-left:12px}
   .barbox .cs{font-family:var(--display);font-weight:700;font-size:17px;margin-bottom:6px}
   .barbox .tok{font-family:var(--mono);font-size:15px;color:var(--brass);letter-spacing:.06em}
-  .barbox + .barbox{}
-  .barbox .cs.second{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
 
   /* ---------- Aktionen ---------- */
   .actions{display:flex;gap:10px;padding:18px 20px 20px;flex-wrap:wrap}
@@ -290,28 +291,30 @@ function invert(set, k){
   for (let i = 0; i < k; i++) s[i].o++;
   return s;
 }
-/* Transposition für die notierte Stimme */
+/* Transposition für die notierte Stimme.
+   dl = Verschiebung der Notenbuchstaben, ds = Halbtöne. Über dl lässt sich
+   dasselbe Intervall anders schreiben: grosse Sekunde (C→D) oder
+   verminderte Terz (C→E♭♭) – erst dadurch wird die Schreibweise wählbar. */
 const TRANSPOSE = { C:[0,0], Bb:[1,2], Eb:[5,9], bass:[0,0] };
-function transposeNote(n, inst){
-  const [dl, ds] = TRANSPOSE[inst];
+function transposeBy(n, dl, ds){
   const absTarget = midi(n) + ds;
-  const l = (n.l + dl) % 7;
-  const letterSteps = n.l + dl;
-  let o = n.o + Math.floor(letterSteps / 7);
+  const l = ((n.l + dl) % 7 + 7) % 7;
+  let o = n.o + Math.floor((n.l + dl) / 7);
   let a = absTarget - ((o + 1) * 12 + LPC[l]);
   while (a >  6) { o++; a = absTarget - ((o + 1) * 12 + LPC[l]); }
   while (a < -6) { o--; a = absTarget - ((o + 1) * 12 + LPC[l]); }
   return {l, a, o};
+}
+function transposeNote(n, inst){
+  const [dl, ds] = TRANSPOSE[inst];
+  return transposeBy(n, dl, ds);
 }
 
 /* =========================================================
    2 · AKKORDE & GRUPPEN
    ========================================================= */
 const QSUFFIX = { 'maj7':'∆', '7':'7', 'm7':'-7', 'm7b5':'ø', '7b9':'7♭9' };
-function chordSymbol(ch, inst){
-  const r = transposeNote({...ch.root, o:4}, inst);
-  return noteName(r) + QSUFFIX[ch.q];
-}
+const chordSymbol = (root, q) => noteName(root) + QSUFFIX[q];
 function parseChord(s){
   const m = /^([A-G][b#]?)(maj7|m7b5|m7|7b9|7)$/.exec(s.trim());
   if (!m) throw new Error('Akkord unlesbar: ' + s);
@@ -351,7 +354,32 @@ function permLabel(permIdx, tokens){
 function P(id, name, spec){
   return { id, name, bars: spec.split('|').map(b => b.trim().split(/\s+/).map(parseChord)) };
 }
-const PROGS = {
+/* Die zwölf Tonarten: [Anzeige, Tonika, II. Stufe, V. Stufe].
+   Moll wird teils anders geschrieben als Dur (cis statt des, fis statt ges),
+   sonst entstehen in den Akkordskalen Doppelvorzeichen. */
+const DUR_KEYS = [
+  ['C',  'C',  'D',  'G' ], ['D♭', 'Db', 'Eb', 'Ab'], ['D',  'D',  'E',  'A' ],
+  ['E♭', 'Eb', 'F',  'Bb'], ['E',  'E',  'F#', 'B' ], ['F',  'F',  'G',  'C' ],
+  ['G♭', 'Gb', 'Ab', 'Db'], ['G',  'G',  'A',  'D' ], ['A♭', 'Ab', 'Bb', 'Eb'],
+  ['A',  'A',  'B',  'E' ], ['B♭', 'Bb', 'C',  'F' ], ['B',  'B',  'C#', 'F#']
+];
+const MOLL_KEYS = [
+  ['c',  'C',  'D',  'G' ], ['c♯', 'C#', 'D#', 'G#'], ['d',  'D',  'E',  'A' ],
+  ['e♭', 'Eb', 'F',  'Bb'], ['e',  'E',  'F#', 'B' ], ['f',  'F',  'G',  'C' ],
+  ['f♯', 'F#', 'G#', 'C#'], ['g',  'G',  'A',  'D' ], ['a♭', 'Ab', 'Bb', 'Eb'],
+  ['a',  'A',  'B',  'E' ], ['b♭', 'Bb', 'C',  'F' ], ['b',  'B',  'C#', 'F#']
+];
+const PROGS = {};
+DUR_KEYS.forEach(([label, t, ii, v]) => {
+  PROGS['t_' + t] = P('t_' + t, 'II-V-I in ' + label, `${ii}m7|${v}7|${t}maj7|${t}maj7`);
+});
+MOLL_KEYS.forEach(([label, t, ii, v]) => {
+  PROGS['m_' + t] = P('m_' + t, 'II-V-i in ' + label, `${ii}m7b5|${v}7b9|${t}m7|${t}m7`);
+});
+const ALL_DUR  = DUR_KEYS.map(k => 't_' + k[1]);
+const ALL_MOLL = MOLL_KEYS.map(k => 'm_' + k[1]);
+
+Object.assign(PROGS, {
   /* Einzelakkorde */
   s_maj : P('s_maj','C∆ – zwei Takte',      'Cmaj7|Cmaj7'),
   s_dom : P('s_dom','F7 – zwei Takte',      'F7|F7'),
@@ -359,21 +387,6 @@ const PROGS = {
   s_hd  : P('s_hd','Bø – zwei Takte',       'Bm7b5|Bm7b5'),
   s_b9  : P('s_b9','A7♭9 – zwei Takte',     'A7b9|A7b9'),
   s_maj2: P('s_maj2','E♭∆ – zwei Takte',    'Ebmaj7|Ebmaj7'),
-
-  /* II-V-I in Dur */
-  t_C   : P('t_C','II-V-I in C',            'Dm7|G7|Cmaj7|Cmaj7'),
-  t_F   : P('t_F','II-V-I in F',            'Gm7|C7|Fmaj7|Fmaj7'),
-  t_Bb  : P('t_Bb','II-V-I in B♭',          'Cm7|F7|Bbmaj7|Bbmaj7'),
-  t_Eb  : P('t_Eb','II-V-I in E♭',          'Fm7|Bb7|Ebmaj7|Ebmaj7'),
-  t_G   : P('t_G','II-V-I in G',            'Am7|D7|Gmaj7|Gmaj7'),
-  t_D   : P('t_D','II-V-I in D',            'Em7|A7|Dmaj7|Dmaj7'),
-  t_Ab  : P('t_Ab','II-V-I in A♭',          'Bbm7|Eb7|Abmaj7|Abmaj7'),
-  t_E   : P('t_E','II-V-I in E',            'F#m7|B7|Emaj7|Emaj7'),
-
-  /* II-V-i in Moll */
-  m_C   : P('m_C','II-V-i in c-Moll',       'Dm7b5|G7b9|Cm7|Cm7'),
-  m_F   : P('m_F','II-V-i in f-Moll',       'Gm7b5|C7b9|Fm7|Fm7'),
-  m_A   : P('m_A','II-V-i in a-Moll',       'Bm7b5|E7b9|Am7|Am7'),
 
   /* Turnarounds & dichte Changes */
   tn_C  : P('tn_C','Turnaround in C',       'Cmaj7 A7b9|Dm7 G7|Cmaj7 A7b9|Dm7 G7'),
@@ -389,10 +402,10 @@ const PROGS = {
   k_thirds: P('k_thirds','Terzzirkel',      'Fmaj7 A7|Dbmaj7 E7|Amaj7 C7|Fmaj7'),
   k_far   : P('k_far','Entfernte Dur-Zentren','Dbmaj7|Gmaj7|Bmaj7|Fmaj7'),
   k_min   : P('k_min','Moll-Zirkel',        'Cm7|F#m7|Am7|Ebm7'),
-  k_dom   : P('k_dom','Dominant-♭9-Zirkel', 'G7b9|Db7b9|E7b9|Bb7b9'),
-  k_hd    : P('k_hd','Halbverminderte',     'Cm7b5|F#m7b5|Am7b5|Ebm7b5'),
+  k_dom   : P('k_dom','Dominant-♭9-Zirkel', 'G7b9|C#7b9|E7b9|Bb7b9'),
+  k_hd    : P('k_hd','Halbverminderte',     'Cm7b5|F#m7b5|Am7b5|D#m7b5'),
   k_one   : P('k_one','Ein Akkord, vier Takte','Gmaj7|Gmaj7|Gmaj7|Gmaj7')
-};
+});
 
 /* =========================================================
    4 · CURRICULUM
@@ -403,30 +416,30 @@ const LEVELS = [
     text:'Spiele die Gruppe aufwärts durch die Changes, achtel-genau und langsam. Höre jeden einzelnen Ton gegen den Akkord – das ist Gehörbildung, nicht Fingerübung.',
     groupings:['1-5'], perms:['0123'], progs:['s_maj','s_dom','s_min','s_hd','s_b9','s_maj2'] },
 
-  { n:2,  title:'1-5 durch II-V-I',
-    head:'Der Wechsel zwischen Dur, Moll und Dominante',
-    text:'Auf Moll-Akkorden wird 1-2-3-5 zu 1-3-4-5. Achte auf die Verbindungsstelle: wie weit springst du vom letzten Ton des einen Akkords zum ersten des nächsten?',
-    groupings:['1-5'], perms:['0123'], progs:['t_C','t_F','t_Bb','t_Eb','t_G','t_D','t_Ab','t_E','m_C','m_A'] },
+  { n:2,  title:'1-5 durch alle zwölf Tonarten',
+    head:'II-V-I in Dur und Moll',
+    text:'Auf Moll-Akkorden wird 1-2-3-5 zu 1-3-4-5. Diese Stufe geht durch alle zwölf Tonarten, Dur und Moll – erst wenn die unbequemen Tonarten genauso laufen wie C und F, sitzt die Gruppe wirklich.',
+    groupings:['1-5'], perms:['0123'], progs:[...ALL_DUR, ...ALL_MOLL], cap:24 },
 
   { n:3,  title:'Vier Permutationen',
     head:'Dieselben Töne, andere Form',
     text:'Übe die Permutation über die kompletten Changes, bis sie ohne Nachdenken läuft. Erst dann die nächste.',
-    groupings:['1-5'], perms:PERM_CORE, progs:['t_C','t_Bb','tn_C','m_C'] },
+    groupings:['1-5'], perms:PERM_CORE, progs:['t_D','t_Ab','t_B','m_E','m_Bb','tn_C'], cap:24 },
 
   { n:4,  title:'Permutationen mischen',
     head:'Formen frei kombinieren',
     text:'Pro Akkord eine andere Form. Denke in Konturen, nicht in Zahlen. Die Vorlage zeigt eine mögliche Lösung – spiele bewusst auch andere.',
-    groupings:['1-5'], perms:['mixed'], progs:['t_F','tn_F','bl1','bl2','bl3','dense'] },
+    groupings:['1-5'], perms:['mixed'], progs:['t_Gb','t_E','m_C#','tn_F','bl1','bl2','bl3','dense'] },
 
   { n:5,  title:'Visualisieren',
     head:'Ohne Instrument, zehn Minuten',
     text:'Sitze aufrecht, Instrument weg. Sieh die Changes zuerst als Block-Akkorde vor dir, dann die Achtelkette darüber. Höre mit. Erst danach zum Instrument greifen und dieselbe Stelle spielen.',
-    groupings:['1-5'], perms:['0123','mixed'], progs:['t_C','t_Eb','bl1','k_thirds'], visual:true },
+    groupings:['1-5'], perms:['0123','mixed'], progs:['t_A','t_Eb','m_F#','bl1','k_thirds'], visual:true },
 
   { n:6,  title:'Editing – Rhythmus',
     head:'Töne weglassen statt hinzufügen',
     text:'Spiele die Vorlage, aber lass pro Akkord ein bis drei Töne weg. Setze Phrasen auf und ab dem Off ein, benutze auch Tonwiederholungen. Die Pausen sind das Solo.',
-    groupings:['1-5'], perms:['mixed'], progs:['t_G','bl2','tn_C','k_one'], edit:true },
+    groupings:['1-5'], perms:['mixed'], progs:['t_G','t_Db','m_C','bl2','tn_C','k_one'], edit:true },
 
   { n:7,  title:'Tonartzentren',
     head:'Schnelle Modulation, langsame Harmonik',
@@ -436,27 +449,27 @@ const LEVELS = [
   { n:8,  title:'Umkehrungen',
     head:'Derselbe Vierklang, anderer Basston',
     text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Übe eine Permutation pro Umkehrung – die restlichen kommen dann von allein.',
-    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Bb','bl1'], inversions:[1,2,3] },
+    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Ab','t_B','m_G','bl1'], inversions:[1,2,3], cap:20 },
 
   { n:9,  title:'Die 5-9-Gruppe',
     head:'5-6-7-9 · Moll 5-7-8-9',
     text:'Klingt wie die Grundgruppe eine Quinte höher. Spiele dazu unbedingt den Akkord mit oder höre ihn dir vor, sonst hörst du nur eine andere Tonart.',
-    groupings:['5-9'], perms:['0123','1032','3210','mixed'], progs:['t_C','t_Bb','m_C','bl1','tn_C'] },
+    groupings:['5-9'], perms:['0123','1032','3210','mixed'], progs:['t_Db','t_E','t_A','m_G','m_Bb','bl1','tn_C'], cap:20 },
 
   { n:10, title:'Upper Structures 9-13',
     head:'9-10-♯11-13 · Moll 9-11-12-13',
     text:'Die Farbtöne des Akkords. Am Anfang klingen sie fremd – das legt sich. Immer mit Akkord darunter üben, sonst verliert die Übung ihren Sinn.',
-    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_C','t_Eb','m_A','bl3','k_far'] },
+    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_F','t_B','t_Eb','m_C','m_F#','bl3','k_far'], cap:20 },
 
   { n:11, title:'Weitere Gruppen',
     head:'3-7 · 7-11 · 4-8 · 6-3',
     text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Suche dir die Gruppe aus, die dir am fremdesten ist.',
-    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'], progs:['t_C','t_F','bl1','k_min'] },
+    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'], progs:['t_C','t_Gb','t_A','m_Eb','bl1','k_min'], cap:20 },
 
   { n:12, title:'Gruppen mischen',
     head:'Stimmführung statt Schema',
     text:'Pro Akkord die Gruppe wählen, die vom letzten Ton aus am kürzesten liegt. Danach frei: Editing und Umkehrungen dazu. Ab hier wird aus der Übung ein Solo.',
-    groupings:['mixed'], perms:['mixed'], progs:['t_C','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], edit:true }
+    progs:['t_C','t_Ab','m_B','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], groupings:['mixed'], perms:['mixed'], edit:true }
 ];
 
 /* =========================================================
@@ -486,11 +499,12 @@ function buildExercises(){
               level: L.n, prog: pgId, grouping: g, perm: pk, inv
             });
     // gleichmäßig ausdünnen statt hart abschneiden
+    const cap = L.cap || CAP;
     let picked = list;
-    if (list.length > CAP){
+    if (list.length > cap){
       picked = [];
-      const step = list.length / CAP;
-      for (let i = 0; i < CAP; i++) picked.push(list[Math.floor(i * step)]);
+      const step = list.length / cap;
+      for (let i = 0; i < cap; i++) picked.push(list[Math.floor(i * step)]);
     }
     all.push(...picked);
   }
@@ -519,18 +533,44 @@ function planExercise(ex){
   return { ex, L, prog, plan };
 }
 
-/* Klingende Tonhöhen inkl. Stimmführung und Lage */
-function pitchesFor(planned, inst){
+/* Die Schreibweise wird für die ganze Progression gemeinsam gewählt, nicht pro
+   Akkord: sonst würde aus der II. Stufe von as-Moll ein Aisø statt eines Bø.
+   Gewertet werden die Vorzeichen aller Akkordskalen und aller gespielten Töne;
+   Doppelvorzeichen wiegen schwer. Bei Gleichstand bleibt es beim Original. */
+function chooseSpelling(planned, inst){
+  const [dl0, ds] = TRANSPOSE[inst];
+  let bestDl = dl0, bestScore = Infinity;
+  for (const dl of [dl0, dl0 - 1, dl0 + 1]){
+    let score = (dl === dl0 ? 0 : 1);
+    for (const bar of planned.plan){
+      for (const cell of bar){
+        const r = transposeBy({...cell.ch.root, o:4}, dl, ds);
+        if (Math.abs(r.a) > 2) { score = Infinity; break; }
+        const notes = chordScale(r, cell.ch.q)
+          .concat(cell.tokens.map(t => resolveToken(t, r, cell.ch.q)));
+        for (const n of notes) score += Math.abs(n.a) + (Math.abs(n.a) > 1 ? 40 : 0);
+      }
+      if (score === Infinity) break;
+    }
+    if (score < bestScore){ bestScore = score; bestDl = dl; }
+  }
+  return bestDl;
+}
+
+/* Notierte Akkordsymbole und Tonhöhen inkl. Stimmführung und Lage */
+function layout(planned, inst){
   const bass = inst === 'bass';
   const lo = bass ? 40 : 55, hi = bass ? 65 : 81;
   let prev = bass ? 45 : 64;
+  const [, ds] = TRANSPOSE[inst];
+  const dl = chooseSpelling(planned, inst);
   const out = [];
   planned.plan.forEach(bar => {
     const row = [];
     bar.forEach(cell => {
-      let set = groupPitches(cell.tokens, cell.ch.root, cell.ch.q);
+      const root = transposeBy({...cell.ch.root, o:4}, dl, ds);
+      let set = groupPitches(cell.tokens, root, cell.ch.q);
       if (planned.ex.inv) set = invert(set, planned.ex.inv);
-      set = set.map(n => transposeNote(n, inst));
       // Oktavlage: möglichst nah an den vorigen Tönen, dann in den Umfang klemmen
       const mids = set.map(midi);
       const min = Math.min(...mids), max = Math.max(...mids);
@@ -542,7 +582,7 @@ function pitchesFor(planned, inst){
       }
       const shifted = set.map(n => ({...n, o:n.o + best}));
       prev = midi(shifted[cell.pIdx[3]]);
-      row.push({ ...cell, pitches: cell.pIdx.map(i => shifted[i]) });
+      row.push({ ...cell, symbol: chordSymbol(root, cell.ch.q), pitches: cell.pIdx.map(i => shifted[i]) });
     });
     out.push(row);
   });
@@ -610,7 +650,7 @@ async function renderNotation(planned, inst, host){
   host.classList.remove('empty');
   host.innerHTML = '';
   const VF = Vex.Flow;
-  const rows = pitchesFor(planned, inst);
+  const rows = layout(planned, inst);
   const clef = inst === 'bass' ? 'bass' : 'treble';
 
   const total = rows.length;
@@ -641,7 +681,7 @@ async function renderNotation(planned, inst, host){
           const n = new VF.StaveNote({ clef, keys:[vexKey(p)], duration:'8' });
           return n;
         });
-        const ann = new VF.Annotation(chordSymbol(cell.ch, inst))
+        const ann = new VF.Annotation(cell.symbol)
           .setFont('Space Grotesk, sans-serif', 13, 'bold')
           .setVerticalJustification(VF.Annotation.VerticalJustify.TOP);
         grp[0].addModifier(ann, 0);
@@ -666,17 +706,20 @@ async function renderNotation(planned, inst, host){
 
 function renderNumbers(planned, inst, host){
   host.innerHTML = '';
-  planned.plan.forEach(bar => {
+  layout(planned, inst).forEach(bar => {
     const box = document.createElement('div');
-    box.className = 'barbox';
-    bar.forEach((cell, i) => {
+    box.className = 'barbox' + (bar.length > 1 ? ' two' : '');
+    bar.forEach(cell => {
+      const beat = document.createElement('div');
+      beat.className = 'beat';
       const cs = document.createElement('div');
-      cs.className = 'cs' + (i ? ' second' : '');
-      cs.textContent = chordSymbol(cell.ch, inst);
+      cs.className = 'cs';
+      cs.textContent = cell.symbol;
       const tk = document.createElement('div');
       tk.className = 'tok';
       tk.textContent = cell.order.join(' · ');
-      box.append(cs, tk);
+      beat.append(cs, tk);
+      box.append(beat);
     });
     host.append(box);
   });
