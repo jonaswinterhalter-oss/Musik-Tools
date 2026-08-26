@@ -369,8 +369,48 @@ h1{
 }
 .listen-btn:active{ background:var(--brass-soft); }
 
+/* Zielton */
+.prompt-box{
+  text-align:center;
+  margin: 4px 0 16px;
+}
+.prompt-box .prompt-main{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:19px;
+}
+.prompt-box .prompt-sub{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--paper-dim);
+  margin-top:4px;
+  letter-spacing:.04em;
+}
+.target-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:16px 0;
+}
+.target-option{
+  background:var(--panel);
+  border:1.5px solid var(--line-strong);
+  border-radius:12px;
+  padding:8px 4px 4px;
+  cursor:pointer;
+  display:flex;
+  justify-content:center;
+}
+.target-option svg{ display:block; }
+.target-option:active{ transform:scale(0.98); }
+.target-option.correct{ border-color:var(--good); background:var(--good-soft); }
+.target-option.wrong{ border-color:var(--bad); background:var(--bad-soft); }
+.target-option.disabled{ pointer-events:none; opacity:.85; }
+
 @media (max-width:380px){
   .answer-grid{grid-template-columns:1fr;}
+  .tabs{flex-wrap:wrap;}
+  .tabs .tab{flex:1 1 45%;}
 }
 </style>
 </head>
@@ -388,6 +428,7 @@ h1{
     <button class="tab active" data-view="learn">Lernen</button>
     <button class="tab" data-view="train">Hören</button>
     <button class="tab" data-view="notes">Noten</button>
+    <button class="tab" data-view="target">Zielton</button>
   </div>
 
   <!-- LERNEN -->
@@ -455,6 +496,39 @@ h1{
     <div class="feedback" id="feedback-n"></div>
     <div class="answer-grid" id="answer-grid-n"></div>
     <p class="hint" id="hint-n">Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.</p>
+  </div>
+
+  <!-- ZIELTON -->
+  <div class="view" id="view-target">
+
+    <div class="score-bar">
+      <div class="score-item"><div class="num" id="score-correct-t">0</div><div class="label">Richtig</div></div>
+      <div class="score-item"><div class="num" id="score-total-t">0</div><div class="label">Fragen</div></div>
+      <div class="score-item"><div class="num" id="score-streak-t">0</div><div class="label">Serie</div></div>
+    </div>
+
+    <div class="panel" id="settings-panel-t">
+      <div class="section-label" style="margin-top:0">Auswahl</div>
+      <div class="preset-row">
+        <button class="chip" data-preset-t="easy">Einfach</button>
+        <button class="chip" data-preset-t="diatonic">Standard</button>
+        <button class="chip" data-preset-t="all">Alle 13</button>
+      </div>
+      <div class="range-grid" id="range-grid-t"></div>
+    </div>
+
+    <button class="big-btn" id="btn-newq-t">Neue Frage</button>
+
+    <div class="staff-card">
+      <div class="staff-svg-wrap" id="notation-holder-t"></div>
+    </div>
+
+    <div class="prompt-box" id="prompt-box-t"></div>
+
+    <div class="target-grid" id="target-grid"></div>
+
+    <div class="feedback" id="feedback-t"></div>
+    <p class="hint" id="hint-t">Wähle mindestens zwei Intervalle aus, dann starte mit „Neue Frage“.</p>
   </div>
 
 </div>
@@ -947,6 +1021,218 @@ document.getElementById('btn-listen-n').addEventListener('click', ()=>{
 });
 
 updateHintN();
+
+/* ========== Zielton-Modus ========== */
+
+function shuffleArr(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
+function noteKey(n){ return n.letter+n.octave+'_'+n.accidental; }
+
+function renderMiniStaff(container, note){
+  const width = 130;
+  const height = 150;
+  const bottomY = 96;
+  const staffLeft = 30;
+  const staffRight = width - 14;
+  const x = (staffLeft+staffRight)/2 + 10;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS,'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+
+  for(let i=0;i<5;i++){
+    const y = bottomY - (i*2)*HALF;
+    const line = document.createElementNS(svgNS,'line');
+    line.setAttribute('x1', staffLeft); line.setAttribute('x2', staffRight);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class','staff-line');
+    svg.appendChild(line);
+  }
+
+  const clef = document.createElementNS(svgNS,'text');
+  clef.setAttribute('x', staffLeft - 22);
+  clef.setAttribute('y', bottomY + 13);
+  clef.setAttribute('class','clef');
+  clef.setAttribute('style','font-size:40px;');
+  clef.textContent = '𝄞';
+  svg.appendChild(clef);
+
+  const y = bottomY - note.position*HALF;
+
+  ledgerPositionsFor(note.position).forEach(p=>{
+    const ly = bottomY - p*HALF;
+    const led = document.createElementNS(svgNS,'line');
+    led.setAttribute('x1', x-10); led.setAttribute('x2', x+10);
+    led.setAttribute('y1', ly); led.setAttribute('y2', ly);
+    led.setAttribute('class','ledger-line');
+    svg.appendChild(led);
+  });
+
+  if(note.accidental !== 0){
+    const acc = document.createElementNS(svgNS,'text');
+    acc.setAttribute('x', x-20);
+    acc.setAttribute('y', y+5);
+    acc.setAttribute('class','accidental');
+    acc.setAttribute('style','font-size:13px;');
+    acc.textContent = ACC_SYMBOL[String(note.accidental)] || '';
+    svg.appendChild(acc);
+  }
+
+  const head = document.createElementNS(svgNS,'ellipse');
+  head.setAttribute('cx', x); head.setAttribute('cy', y);
+  head.setAttribute('rx', 6.5); head.setAttribute('ry', 4.8);
+  head.setAttribute('class','notehead');
+  head.setAttribute('transform', `rotate(-18 ${x} ${y})`);
+  svg.appendChild(head);
+
+  container.innerHTML='';
+  container.appendChild(svg);
+}
+
+function buildDistractors(correctTarget){
+  const candidates = [];
+  function addIfNew(n){
+    if(noteKey(n)===noteKey(correctTarget)) return;
+    if(candidates.some(c=>noteKey(c)===noteKey(n))) return;
+    candidates.push(n);
+  }
+
+  // Enharmonische Umdeutung: gleicher Klang, falsche Schreibweise
+  [correctTarget.position+1, correctTarget.position-1].forEach(p=>{
+    const nat = positionToNatural(p);
+    const acc = correctTarget.midi - nat.naturalMidi;
+    if(Math.abs(acc)<=2) addIfNew({position:p, letter:nat.letter, octave:nat.octave, accidental:acc, midi:correctTarget.midi});
+  });
+
+  // Gleiche Position, falsches Vorzeichen
+  [1,-1,2,-2].forEach(delta=>{
+    const acc = correctTarget.accidental+delta;
+    if(Math.abs(acc)<=2){
+      const nat = positionToNatural(correctTarget.position);
+      addIfNew({position:correctTarget.position, letter:nat.letter, octave:nat.octave, accidental:acc, midi:nat.naturalMidi+acc});
+    }
+  });
+
+  // Falsche Intervallgröße: Nachbarposition, unverändert
+  [correctTarget.position+1, correctTarget.position-1, correctTarget.position+2, correctTarget.position-2].forEach(p=>{
+    const nat = positionToNatural(p);
+    addIfNew({position:p, letter:nat.letter, octave:nat.octave, accidental:0, midi:nat.naturalMidi});
+  });
+
+  return shuffleArr(candidates).slice(0,3);
+}
+
+let selectedSemiT = new Set(PRESETS.diatonic);
+let currentT = null; // {rootNote, correctTarget, iv}
+let answeredT = false;
+let statsT = {correct:0, total:0, streak:0};
+
+const rangeGridT = document.getElementById('range-grid-t');
+INTERVALS.forEach(iv=>{
+  const chip=document.createElement('button');
+  chip.className='range-chip'+(selectedSemiT.has(iv.semi)?' active':'');
+  chip.textContent=iv.short;
+  chip.dataset.semi=iv.semi;
+  chip.addEventListener('click',()=>{
+    const s=iv.semi;
+    if(selectedSemiT.has(s)) selectedSemiT.delete(s); else selectedSemiT.add(s);
+    chip.classList.toggle('active');
+    updateHintT();
+  });
+  rangeGridT.appendChild(chip);
+});
+
+document.querySelectorAll('[data-preset-t]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selectedSemiT = new Set(PRESETS[btn.dataset.presetT]);
+    rangeGridT.querySelectorAll('.range-chip').forEach(c=>{
+      c.classList.toggle('active', selectedSemiT.has(Number(c.dataset.semi)));
+    });
+    updateHintT();
+  });
+});
+
+function updateHintT(){
+  const hint=document.getElementById('hint-t');
+  hint.textContent = selectedSemiT.size<1
+    ? 'Wähle mindestens ein Intervall aus, dann starte mit „Neue Frage“.'
+    : '';
+}
+
+function newQuestionT(){
+  if(selectedSemiT.size<1){ updateHintT(); return; }
+  const options = INTERVALS.filter(iv=>selectedSemiT.has(iv.semi));
+  const iv = options[Math.floor(Math.random()*options.length)];
+  // Grundton etwas tiefer ansetzen, damit auch große Intervalle aufwärts auf dem System bleiben
+  const rootPos = -3 + Math.floor(Math.random()*4); // -3..0
+  const nat = positionToNatural(rootPos);
+  const rootNote = {position:rootPos, letter:nat.letter, octave:nat.octave, accidental:0, midi:nat.naturalMidi};
+  const correctTarget = buildNoteAt(rootPos + iv.step, rootNote.midi + iv.semi);
+
+  currentT = {rootNote, correctTarget, iv};
+  answeredT = false;
+
+  document.getElementById('feedback-t').textContent='';
+  document.getElementById('feedback-t').className='feedback';
+
+  renderStaff(document.getElementById('notation-holder-t'), [rootNote]);
+
+  document.getElementById('prompt-box-t').innerHTML =
+    `<div class="prompt-main">${iv.name} aufwärts</div>
+     <div class="prompt-sub">${iv.short} · ${iv.semi} Halbton${iv.semi===1?'':'e'} — welcher Ton ist das Ziel?</div>`;
+
+  const distractors = buildDistractors(correctTarget);
+  const allOptions = shuffleArr([correctTarget, ...distractors]);
+
+  const grid = document.getElementById('target-grid');
+  grid.innerHTML='';
+  allOptions.forEach(opt=>{
+    const card = document.createElement('div');
+    card.className='target-option';
+    renderMiniStaff(card, opt);
+    card.addEventListener('click', ()=>handleAnswerT(opt, card));
+    grid.appendChild(card);
+  });
+}
+
+function handleAnswerT(opt, cardEl){
+  if(answeredT || !currentT) return;
+  answeredT = true;
+  statsT.total++;
+  const correct = noteKey(opt) === noteKey(currentT.correctTarget);
+  if(correct){ statsT.correct++; statsT.streak++; }
+  else { statsT.streak = 0; }
+  updateScoreT();
+
+  const fb=document.getElementById('feedback-t');
+  const correctLabel = currentT.correctTarget.letter +
+    (ACC_SYMBOL[String(currentT.correctTarget.accidental)]||'') +
+    currentT.correctTarget.octave;
+
+  if(correct){
+    fb.textContent = 'Richtig — ' + correctLabel;
+    fb.className='feedback good';
+    cardEl.classList.add('correct');
+  } else {
+    fb.textContent = 'Leider nicht — richtig war: ' + correctLabel;
+    fb.className='feedback bad';
+    cardEl.classList.add('wrong');
+  }
+
+  document.querySelectorAll('#target-grid .target-option').forEach(c=>c.classList.add('disabled'));
+}
+
+function updateScoreT(){
+  document.getElementById('score-correct-t').textContent = statsT.correct;
+  document.getElementById('score-total-t').textContent = statsT.total;
+  document.getElementById('score-streak-t').textContent = statsT.streak;
+}
+
+document.getElementById('btn-newq-t').addEventListener('click', newQuestionT);
+
+updateHintT();
 </script>
 </body>
 </html>
