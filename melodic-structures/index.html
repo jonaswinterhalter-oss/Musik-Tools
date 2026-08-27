@@ -448,8 +448,8 @@ const LEVELS = [
 
   { n:3,  title:'Vier Permutationen, alle Tonarten',
     head:'Dieselben Töne, andere Form',
-    text:'Übe die angezeigte Permutation über die Kadenz, bis sie ohne Nachdenken läuft. Jede Tonart bekommt eine der vier Kernformen zugeteilt – am Ende hast du alle vier Formen in mehreren Tonarten geübt, nicht nur in C.',
-    groupings:['1-5'], perms:PERM_CORE, progs:[...ALL_DUR, ...ALL_MOLL], cap:24, rotate:true },
+    text:'Die vier von Bergonzi empfohlenen Formen (Grundform, 2-1-5-3, 3-5-2-1, 5-3-2-1 – auf Moll entsprechend übertragen), jede einzeln in jeder der 24 Kadenzen.',
+    groupings:['1-5'], perms:PERM_CORE, progs:[...ALL_DUR, ...ALL_MOLL], cap:96 },
 
   { n:4,  title:'Permutationen mischen',
     head:'Formen frei kombinieren, alle Tonarten',
@@ -476,27 +476,29 @@ const LEVELS = [
 
   { n:8,  title:'Umkehrungen, alle Tonarten',
     head:'Derselbe Vierklang, anderer Basston',
-    text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Form und Umkehrung wechseln von Tonart zu Tonart durch – am Ende hast du alle drei Umkehrungen mehrfach geübt, verteilt über alle zwölf Tonarten.',
-    groupings:['1-5'], perms:['0123','1032','2310'],
-    progs:[...ALL_DUR, ...ALL_MOLL], inversions:[1,2,3], rotate:true, cap:24 },
+    text:'Die drei Paare aus Assignment VII: 5-1-3-2 in der 1. Umkehrung, 2-1-5-3 in der 2., 3-1-2-5 in der 3. – jedes einzeln in jeder der 24 Kadenzen.',
+    groupings:['1-5'],
+    progs:[...ALL_DUR, ...ALL_MOLL],
+    pairs:[{ perm:'3021', inv:1 }, { perm:'1032', inv:2 }, { perm:'2013', inv:3 }],
+    cap:72 },
 
   { n:9,  title:'Die 5-9-Gruppe, alle Tonarten',
     head:'5-6-7-9 · Moll 5-7-8-9',
-    text:'Klingt wie die Grundgruppe eine Quinte höher. Spiele dazu unbedingt den Akkord mit oder höre ihn dir vor, sonst hörst du nur eine andere Tonart.',
-    groupings:['5-9'], perms:['0123','1032','3210','mixed'],
-    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','tn_C'], rotate:true, cap:26 },
+    text:'Die vier von Bergonzi in Assignment IX empfohlenen Formen (5-6-7-9, 6-5-9-7, 7-9-6-5, 9-7-6-5), jede in jeder Kadenz. Spiele dazu unbedingt den Akkord mit, sonst hörst du nur eine andere Tonart.',
+    groupings:['5-9'], perms:PERM_CORE,
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','tn_C'], cap:104 },
 
   { n:10, title:'Upper Structures 9-13, alle Tonarten',
     head:'9-10-♯11-13 · Moll 9-11-12-13',
-    text:'Die Farbtöne des Akkords. Am Anfang klingen sie fremd – das legt sich. Immer mit Akkord darunter üben, sonst verliert die Übung ihren Sinn.',
-    groupings:['9-13'], perms:['0123','2310','3210','mixed'],
-    progs:[...ALL_DUR, ...ALL_MOLL, 'bl3','k_far'], rotate:true, cap:26 },
+    text:'Die vier von Bergonzi in Assignment XI empfohlenen Formen, jede in jeder Kadenz. Die Farbtöne des Akkords klingen am Anfang fremd – immer mit Akkord darunter üben.',
+    groupings:['9-13'], perms:PERM_CORE,
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl3','k_far'], cap:104 },
 
   { n:11, title:'Weitere Gruppen, alle Tonarten',
     head:'3-7 · 7-11 · 4-8 · 6-3',
-    text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Form und Gruppe wechseln von Tonart zu Tonart durch.',
-    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'],
-    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','k_min'], rotate:true, cap:26 },
+    text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Die Gruppe wechselt tonartweise durch, dazu jeweils alle vier empfohlenen Formen.',
+    groupings:['3-7','7-11','4-8','6-3'], perms:PERM_CORE,
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','k_min'], rotate:true, allPerms:true, cap:104 },
 
   { n:12, title:'Gruppen mischen, alle Tonarten',
     head:'Stimmführung statt Schema',
@@ -540,7 +542,28 @@ function buildExercises(){
   for (const L of LEVELS){
     const list = [];
     const invs = L.inversions || [0];
-    if (L.rotate){
+    if (L.pairs){
+      // Bergonzis Assignment VII gibt keine freie Kombination vor, sondern
+      // drei feste Form-Umkehrungs-Paare. Die werden hier wörtlich übernommen,
+      // für jede Tonart.
+      for (const pgId of L.progs)
+        for (const { perm, inv } of L.pairs)
+          list.push({
+            id: `L${L.n}·${pgId}·${L.groupings[0]}·${perm}·${inv}`,
+            level: L.n, prog: pgId, grouping: L.groupings[0], perm, inv
+          });
+    } else if (L.rotate && L.allPerms){
+      // Die Gruppe (oder Umkehrung) rotiert reihum durch die Tonarten,
+      // aber jede Tonart bekommt dazu alle empfohlenen Formen, nicht nur eine.
+      L.progs.forEach((pgId, i) => {
+        const g   = L.groupings[i % L.groupings.length];
+        const inv = invs[i % invs.length];
+        L.perms.forEach(pk => list.push({
+          id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
+          level: L.n, prog: pgId, grouping: g, perm: pk, inv
+        }));
+      });
+    } else if (L.rotate){
       // Jede Tonart bekommt reihum eine Kombination aus Form, Gruppe und
       // Umkehrung zugeteilt – so ist am Ende jede der 24 Kadenzen einmal
       // dran, und über die Stufe hinweg kommen alle Techniken vor.
