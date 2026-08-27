@@ -449,52 +449,60 @@ const LEVELS = [
   { n:3,  title:'Vier Permutationen, alle Tonarten',
     head:'Dieselben Töne, andere Form',
     text:'Übe die angezeigte Permutation über die Kadenz, bis sie ohne Nachdenken läuft. Jede Tonart bekommt eine der vier Kernformen zugeteilt – am Ende hast du alle vier Formen in mehreren Tonarten geübt, nicht nur in C.',
-    groupings:['1-5'], perms:PERM_CORE, progs:[...ALL_DUR, ...ALL_MOLL], cap:24, rotatePerm:true },
+    groupings:['1-5'], perms:PERM_CORE, progs:[...ALL_DUR, ...ALL_MOLL], cap:24, rotate:true },
 
   { n:4,  title:'Permutationen mischen',
-    head:'Formen frei kombinieren',
+    head:'Formen frei kombinieren, alle Tonarten',
     text:'Pro Akkord eine andere Form. Denke in Konturen, nicht in Zahlen. Die Vorlage zeigt eine mögliche Lösung – spiele bewusst auch andere.',
-    groupings:['1-5'], perms:['mixed'], progs:['t_Gb','t_E','m_C#','tn_F','bl1','bl2','bl3','dense'] },
+    groupings:['1-5'], perms:['mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'tn_F','bl1','bl2','bl3','dense'], cap:29 },
 
   { n:5,  title:'Visualisieren',
-    head:'Ohne Instrument, zehn Minuten',
+    head:'Ohne Instrument, alle Tonarten',
     text:'Sitze aufrecht, Instrument weg. Sieh die Changes zuerst als Block-Akkorde vor dir, dann die Achtelkette darüber. Höre mit. Erst danach zum Instrument greifen und dieselbe Stelle spielen.',
-    groupings:['1-5'], perms:['0123','mixed'], progs:['t_A','t_Eb','m_F#','bl1','bl3','k_thirds'], visual:true },
+    groupings:['1-5'], perms:['0123','mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','k_thirds'], visual:true, rotate:true, cap:26 },
 
   { n:6,  title:'Editing – Rhythmus',
-    head:'Töne weglassen statt hinzufügen',
+    head:'Töne weglassen, alle Tonarten',
     text:'Spiele die Vorlage, aber lass pro Akkord ein bis drei Töne weg. Setze Phrasen auf und ab dem Off ein, benutze auch Tonwiederholungen. Die Pausen sind das Solo.',
-    groupings:['1-5'], perms:['mixed'], progs:['t_G','t_Db','t_E','m_C','bl2','tn_C','k_one'], edit:true },
+    groupings:['1-5'], perms:['mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl2','tn_C','k_one'], edit:true, cap:27 },
 
   { n:7,  title:'Tonartzentren',
     head:'Schnelle Modulation, langsame Harmonik',
-    text:'Bei dichten Changes reicht eine einfache Form pro Akkord – die Changes spielen sich dann von selbst. Bei einem Akkord über vier Takte brauchst du dagegen Abwechslung in den Formen.',
+    text:'Diese Stufe übt keine zwölf einzelnen Kadenzen, sondern das Gegenteil: Progressionen, die innerhalb weniger Takte durch mehrere Tonarten wandern. Zusammen berühren sie trotzdem alle zwölf Zentren – nur eben unterwegs, nicht als eigene Übung.',
     groupings:['1-5'], perms:['mixed'], progs:['k_thirds','k_thirds2','k_far','k_min','k_dom','k_hd','k_one'] },
 
-  { n:8,  title:'Umkehrungen',
+  { n:8,  title:'Umkehrungen, alle Tonarten',
     head:'Derselbe Vierklang, anderer Basston',
-    text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Übe eine Permutation pro Umkehrung – die restlichen kommen dann von allein.',
-    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Ab','t_B','m_G','m_E','bl1'], inversions:[1,2,3], cap:20 },
+    text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Form und Umkehrung wechseln von Tonart zu Tonart durch – am Ende hast du alle drei Umkehrungen mehrfach geübt, verteilt über alle zwölf Tonarten.',
+    groupings:['1-5'], perms:['0123','1032','2310'],
+    progs:[...ALL_DUR, ...ALL_MOLL], inversions:[1,2,3], rotate:true, cap:24 },
 
-  { n:9,  title:'Die 5-9-Gruppe',
+  { n:9,  title:'Die 5-9-Gruppe, alle Tonarten',
     head:'5-6-7-9 · Moll 5-7-8-9',
     text:'Klingt wie die Grundgruppe eine Quinte höher. Spiele dazu unbedingt den Akkord mit oder höre ihn dir vor, sonst hörst du nur eine andere Tonart.',
-    groupings:['5-9'], perms:['0123','1032','3210','mixed'], progs:['t_Db','t_E','t_A','m_G','m_Bb','bl1','tn_C'], cap:20 },
+    groupings:['5-9'], perms:['0123','1032','3210','mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','tn_C'], rotate:true, cap:26 },
 
-  { n:10, title:'Upper Structures 9-13',
+  { n:10, title:'Upper Structures 9-13, alle Tonarten',
     head:'9-10-♯11-13 · Moll 9-11-12-13',
     text:'Die Farbtöne des Akkords. Am Anfang klingen sie fremd – das legt sich. Immer mit Akkord darunter üben, sonst verliert die Übung ihren Sinn.',
-    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_F','t_B','t_Eb','t_A','m_C','m_F#','bl3','k_far'], cap:20 },
+    groupings:['9-13'], perms:['0123','2310','3210','mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl3','k_far'], rotate:true, cap:26 },
 
-  { n:11, title:'Weitere Gruppen',
+  { n:11, title:'Weitere Gruppen, alle Tonarten',
     head:'3-7 · 7-11 · 4-8 · 6-3',
-    text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Suche dir die Gruppe aus, die dir am fremdesten ist.',
-    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'], progs:['t_C','t_Gb','t_A','m_Eb','bl1','k_min'], cap:20 },
+    text:'Jede Gruppe hat einen eigenen Charakter: 3-5-6-7 enthält die Guide Tones und beschreibt den Akkord am deutlichsten. Form und Gruppe wechseln von Tonart zu Tonart durch.',
+    groupings:['3-7','7-11','4-8','6-3'], perms:['0123','mixed'],
+    progs:[...ALL_DUR, ...ALL_MOLL, 'bl1','k_min'], rotate:true, cap:26 },
 
-  { n:12, title:'Gruppen mischen',
+  { n:12, title:'Gruppen mischen, alle Tonarten',
     head:'Stimmführung statt Schema',
     text:'Pro Akkord die Gruppe wählen, die vom letzten Ton aus am kürzesten liegt. Danach frei: Editing und Umkehrungen dazu. Ab hier wird aus der Übung ein Solo.',
-    progs:['t_C','t_Ab','t_Gb','m_B','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], groupings:['mixed'], perms:['mixed'], edit:true }
+    progs:[...ALL_DUR, ...ALL_MOLL, 'tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'],
+    groupings:['mixed'], perms:['mixed'], edit:true, cap:31 }
 ];
 
 /* Fundstellen im Buch (Bergonzi, Inside Improvisation Vol. 1,
@@ -532,16 +540,18 @@ function buildExercises(){
   for (const L of LEVELS){
     const list = [];
     const invs = L.inversions || [0];
-    if (L.rotatePerm){
-      // Jede Tonart bekommt reihum eine der Kernformen zugeteilt, statt jede
-      // Tonart mit jeder Form zu kombinieren (24 × 4 wäre zu viel für eine Stufe).
+    if (L.rotate){
+      // Jede Tonart bekommt reihum eine Kombination aus Form, Gruppe und
+      // Umkehrung zugeteilt – so ist am Ende jede der 24 Kadenzen einmal
+      // dran, und über die Stufe hinweg kommen alle Techniken vor.
       L.progs.forEach((pgId, i) => {
-        const pk = L.perms[i % L.perms.length];
-        const g = L.groupings[i % L.groupings.length];
-        invs.forEach(inv => list.push({
+        const pk  = L.perms[i % L.perms.length];
+        const g   = L.groupings[i % L.groupings.length];
+        const inv = invs[i % invs.length];
+        list.push({
           id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
           level: L.n, prog: pgId, grouping: g, perm: pk, inv
-        }));
+        });
       });
     } else {
       for (const pgId of L.progs)
@@ -612,6 +622,28 @@ function chooseSpelling(planned, inst){
   return bestDl;
 }
 
+/* Manche Akkord-Grundtöne führen bei bestimmten Gruppen zu Doppelvorzeichen
+   (z.B. #11 auf C♯7♭9 wäre F♯♯), unabhängig davon, wie das übrige Stück
+   geschrieben ist. In diesem Fall wird nur dieser eine Akkord respellt –
+   in echten Chord Charts ist das üblich, ein einzelner Akkord darf anders
+   geschrieben sein als seine Nachbarn. */
+function chordTones(r, q, tokens){
+  return chordScale(r, q).concat(tokens.map(t => resolveToken(t, r, q)));
+}
+function fixRoot(root, q, tokens){
+  const worst = notes => Math.max(...notes.map(n => Math.abs(n.a)));
+  if (worst(chordTones(root, q, tokens)) <= 1) return root;
+  let best = root, bestScore = Infinity;
+  for (const dl of [-1, 1, -2, 2]){
+    const cand = transposeBy(root, dl, 0);          // gleicher Klang, andere Schreibweise
+    const notes = chordTones(cand, q, tokens);
+    if (worst(notes) > 2) continue;
+    const score = notes.reduce((s, n) => s + Math.abs(n.a) + (Math.abs(n.a) > 1 ? 40 : 0), 0);
+    if (score < bestScore){ bestScore = score; best = cand; }
+  }
+  return best;
+}
+
 /* Notierte Akkordsymbole und Tonhöhen inkl. Stimmführung und Lage */
 function layout(planned, inst){
   const bass = inst === 'bass';
@@ -623,7 +655,7 @@ function layout(planned, inst){
   planned.plan.forEach(bar => {
     const row = [];
     bar.forEach(cell => {
-      const root = transposeBy({...cell.ch.root, o:4}, dl, ds);
+      const root = fixRoot(transposeBy({...cell.ch.root, o:4}, dl, ds), cell.ch.q, cell.tokens);
       let set = groupPitches(cell.tokens, root, cell.ch.q);
       if (planned.ex.inv) set = invert(set, planned.ex.inv);
       // Oktavlage: möglichst nah an den vorigen Tönen, dann in den Umfang klemmen
