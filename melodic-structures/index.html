@@ -134,6 +134,7 @@
   .stats{font-family:var(--mono);font-size:12px;color:var(--muted)}
   .ghost{background:transparent;color:var(--muted);font-size:12px}
   .ghost:hover{color:var(--text)}
+  .footer-btns{display:flex;gap:14px;flex-wrap:wrap}
   .toast{
     position:fixed;left:50%;transform:translateX(-50%);bottom:22px;
     background:var(--brass);color:#20180a;font-family:var(--display);font-weight:700;
@@ -210,7 +211,10 @@
 
   <footer>
     <div class="stats" id="stats"></div>
-    <button class="ghost" id="btn-reset">Fortschritt zurücksetzen</button>
+    <div class="footer-btns">
+      <button class="ghost" id="btn-level-done">Diese Stufe komplett markieren</button>
+      <button class="ghost" id="btn-reset">Fortschritt zurücksetzen</button>
+    </div>
   </footer>
 </div>
 
@@ -420,6 +424,7 @@ Object.assign(PROGS, {
 
   /* Tonartzentren */
   k_thirds: P('k_thirds','Terzzirkel',      'Fmaj7 A7|Dbmaj7 E7|Amaj7 C7|Fmaj7'),
+  k_thirds2: P('k_thirds2','Terzzirkel II', 'Dmaj7 F7|Abmaj7 B7|Ebmaj7 G7|Dmaj7'),
   k_far   : P('k_far','Entfernte Dur-Zentren','Dbmaj7|Gmaj7|Bmaj7|Fmaj7'),
   k_min   : P('k_min','Moll-Zirkel',        'Cm7|F#m7|Am7|Ebm7'),
   k_dom   : P('k_dom','Dominant-♭9-Zirkel', 'G7b9|C#7b9|E7b9|Bb7b9'),
@@ -441,10 +446,10 @@ const LEVELS = [
     text:'Auf Moll-Akkorden wird 1-2-3-5 zu 1-3-4-5. Diese Stufe geht durch alle zwölf Tonarten, Dur und Moll – erst wenn die unbequemen Tonarten genauso laufen wie C und F, sitzt die Gruppe wirklich.',
     groupings:['1-5'], perms:['0123'], progs:[...ALL_DUR, ...ALL_MOLL], cap:24 },
 
-  { n:3,  title:'Vier Permutationen',
+  { n:3,  title:'Vier Permutationen, alle Tonarten',
     head:'Dieselben Töne, andere Form',
-    text:'Übe die Permutation über die kompletten Changes, bis sie ohne Nachdenken läuft. Erst dann die nächste.',
-    groupings:['1-5'], perms:PERM_CORE, progs:['t_D','t_Ab','t_B','m_E','m_Bb','tn_C'], cap:24 },
+    text:'Übe die angezeigte Permutation über die Kadenz, bis sie ohne Nachdenken läuft. Jede Tonart bekommt eine der vier Kernformen zugeteilt – am Ende hast du alle vier Formen in mehreren Tonarten geübt, nicht nur in C.',
+    groupings:['1-5'], perms:PERM_CORE, progs:[...ALL_DUR, ...ALL_MOLL], cap:24, rotatePerm:true },
 
   { n:4,  title:'Permutationen mischen',
     head:'Formen frei kombinieren',
@@ -454,22 +459,22 @@ const LEVELS = [
   { n:5,  title:'Visualisieren',
     head:'Ohne Instrument, zehn Minuten',
     text:'Sitze aufrecht, Instrument weg. Sieh die Changes zuerst als Block-Akkorde vor dir, dann die Achtelkette darüber. Höre mit. Erst danach zum Instrument greifen und dieselbe Stelle spielen.',
-    groupings:['1-5'], perms:['0123','mixed'], progs:['t_A','t_Eb','m_F#','bl1','k_thirds'], visual:true },
+    groupings:['1-5'], perms:['0123','mixed'], progs:['t_A','t_Eb','m_F#','bl1','bl3','k_thirds'], visual:true },
 
   { n:6,  title:'Editing – Rhythmus',
     head:'Töne weglassen statt hinzufügen',
     text:'Spiele die Vorlage, aber lass pro Akkord ein bis drei Töne weg. Setze Phrasen auf und ab dem Off ein, benutze auch Tonwiederholungen. Die Pausen sind das Solo.',
-    groupings:['1-5'], perms:['mixed'], progs:['t_G','t_Db','m_C','bl2','tn_C','k_one'], edit:true },
+    groupings:['1-5'], perms:['mixed'], progs:['t_G','t_Db','t_E','m_C','bl2','tn_C','k_one'], edit:true },
 
   { n:7,  title:'Tonartzentren',
     head:'Schnelle Modulation, langsame Harmonik',
     text:'Bei dichten Changes reicht eine einfache Form pro Akkord – die Changes spielen sich dann von selbst. Bei einem Akkord über vier Takte brauchst du dagegen Abwechslung in den Formen.',
-    groupings:['1-5'], perms:['mixed'], progs:['k_thirds','k_far','k_min','k_dom','k_hd','k_one'] },
+    groupings:['1-5'], perms:['mixed'], progs:['k_thirds','k_thirds2','k_far','k_min','k_dom','k_hd','k_one'] },
 
   { n:8,  title:'Umkehrungen',
     head:'Derselbe Vierklang, anderer Basston',
     text:'Bei der ersten Umkehrung wandert der tiefste Ton eine Oktave nach oben. Übe eine Permutation pro Umkehrung – die restlichen kommen dann von allein.',
-    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Ab','t_B','m_G','bl1'], inversions:[1,2,3], cap:20 },
+    groupings:['1-5'], perms:['0123','1032','2310'], progs:['t_C','t_Ab','t_B','m_G','m_E','bl1'], inversions:[1,2,3], cap:20 },
 
   { n:9,  title:'Die 5-9-Gruppe',
     head:'5-6-7-9 · Moll 5-7-8-9',
@@ -479,7 +484,7 @@ const LEVELS = [
   { n:10, title:'Upper Structures 9-13',
     head:'9-10-♯11-13 · Moll 9-11-12-13',
     text:'Die Farbtöne des Akkords. Am Anfang klingen sie fremd – das legt sich. Immer mit Akkord darunter üben, sonst verliert die Übung ihren Sinn.',
-    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_F','t_B','t_Eb','m_C','m_F#','bl3','k_far'], cap:20 },
+    groupings:['9-13'], perms:['0123','2310','3210','mixed'], progs:['t_F','t_B','t_Eb','t_A','m_C','m_F#','bl3','k_far'], cap:20 },
 
   { n:11, title:'Weitere Gruppen',
     head:'3-7 · 7-11 · 4-8 · 6-3',
@@ -489,7 +494,7 @@ const LEVELS = [
   { n:12, title:'Gruppen mischen',
     head:'Stimmführung statt Schema',
     text:'Pro Akkord die Gruppe wählen, die vom letzten Ton aus am kürzesten liegt. Danach frei: Editing und Umkehrungen dazu. Ab hier wird aus der Übung ein Solo.',
-    progs:['t_C','t_Ab','m_B','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], groupings:['mixed'], perms:['mixed'], edit:true }
+    progs:['t_C','t_Ab','t_Gb','m_B','tn_F','bl1','bl2','bl3','dense','k_thirds','k_one'], groupings:['mixed'], perms:['mixed'], edit:true }
 ];
 
 /* Fundstellen im Buch (Bergonzi, Inside Improvisation Vol. 1,
@@ -527,14 +532,27 @@ function buildExercises(){
   for (const L of LEVELS){
     const list = [];
     const invs = L.inversions || [0];
-    for (const pgId of L.progs)
-      for (const g of L.groupings)
-        for (const pk of L.perms)
-          for (const inv of invs)
-            list.push({
-              id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
-              level: L.n, prog: pgId, grouping: g, perm: pk, inv
-            });
+    if (L.rotatePerm){
+      // Jede Tonart bekommt reihum eine der Kernformen zugeteilt, statt jede
+      // Tonart mit jeder Form zu kombinieren (24 × 4 wäre zu viel für eine Stufe).
+      L.progs.forEach((pgId, i) => {
+        const pk = L.perms[i % L.perms.length];
+        const g = L.groupings[i % L.groupings.length];
+        invs.forEach(inv => list.push({
+          id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
+          level: L.n, prog: pgId, grouping: g, perm: pk, inv
+        }));
+      });
+    } else {
+      for (const pgId of L.progs)
+        for (const g of L.groupings)
+          for (const pk of L.perms)
+            for (const inv of invs)
+              list.push({
+                id: `L${L.n}·${pgId}·${g}·${pk}·${inv}`,
+                level: L.n, prog: pgId, grouping: g, perm: pk, inv
+              });
+    }
     // gleichmäßig ausdünnen statt hart abschneiden
     const cap = L.cap || CAP;
     let picked = list;
@@ -945,6 +963,18 @@ function setView(v){
 }
 $('#v-notes').addEventListener('click', () => setView('notes'));
 $('#v-nums').addEventListener('click', () => setView('nums'));
+$('#btn-level-done').addEventListener('click', async () => {
+  const n = state.level, L = LEVELS[n - 1];
+  if (!confirm(`Alle Übungen der Stufe ${n} ("${L.title}") als "sitzt" markieren? Nützlich, wenn gespeicherter Fortschritt verloren ging.`)) return;
+  byLevel(n).forEach(e => {
+    const r = rec(e.id);
+    state.prog[e.id] = { s:'m', due: state.counter + 200, reps: r.reps + 1 };
+  });
+  state.lastId = null;
+  if (n < LEVELS.length){ state.level = n + 1; toast('Stufe ' + state.level + ' freigeschaltet: ' + LEVELS[state.level - 1].title); }
+  else toast('Stufe ' + n + ' markiert');
+  await save(); show();
+});
 $('#btn-reset').addEventListener('click', async () => {
   if (!confirm('Gesamten Fortschritt löschen?')) return;
   state.prog = {}; state.counter = 0; state.level = 1; state.lastId = null;
