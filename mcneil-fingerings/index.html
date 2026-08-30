@@ -345,9 +345,9 @@ function bpmOf(n){ return progress[n] || MIN_BPM; }
 
 async function loadProgress(){
   try{
-    const res = await window.storage.get(STORAGE_KEY, false);
-    if(res && res.value){
-      progress = JSON.parse(res.value);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      progress = JSON.parse(raw);
     }
   }catch(e){
     progress = {};
@@ -356,7 +356,7 @@ async function loadProgress(){
 
 async function saveProgress(){
   try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(progress), false);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }catch(e){
     console.error('Speichern fehlgeschlagen', e);
   }
