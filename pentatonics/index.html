@@ -1,0 +1,1407 @@
+<meta charset="utf-8">
+<title>Pentatonics Übungstrainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  /* Farbwelt bewusst weit weg vom 1235-Tool (Nachtblau, Messing, Petrol):
+     kühles Mineralgrau mit Grünstich, ein einziger lauter Ton in Himbeere.
+     Das Notenblatt bleibt in beiden Themes echtes Papierweiss – Notensatz
+     liest sich schwarz auf weiss, alles andere folgt dem Theme. */
+  :root{
+    --ground:#E2E7E3;
+    --panel:#F4F7F4;
+    --panel-2:#E8EDE8;
+    --rule:#C7D0C9;
+    --rule-soft:#D8E0D9;
+    --ink:#151E19;
+    --muted:#657469;
+    --accent:#9B1B4E;
+    --accent-ink:#FFF3F7;
+    --accent-wash:#F6E4EC;
+    --other:#2A4A9E;
+    --other-wash:#E4EAF7;
+    --ok:#1E6547;
+    --ok-ink:#F0F7F3;
+    --sheet:#FFFFFF;
+    --sheet-rule:#C7D0C9;
+    --display:"Archivo",system-ui,sans-serif;
+    --body:"Public Sans",system-ui,sans-serif;
+    --mono:"Azeret Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#111713;  --panel:#19211C;  --panel-2:#222B25;
+      --rule:#2F3B34;    --rule-soft:#28332C;
+      --ink:#E2EAE4;     --muted:#8DA095;
+      --accent:#F16797;  --accent-ink:#2A0715; --accent-wash:#33101F;
+      --other:#93AEF5;   --other-wash:#161F35;
+      --ok:#4FA57B;      --ok-ink:#082016;
+      --sheet-rule:#B9C2BB;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#111713;  --panel:#19211C;  --panel-2:#222B25;
+    --rule:#2F3B34;    --rule-soft:#28332C;
+    --ink:#E2EAE4;     --muted:#8DA095;
+    --accent:#F16797;  --accent-ink:#2A0715; --accent-wash:#33101F;
+    --other:#93AEF5;   --other-wash:#161F35;
+    --ok:#4FA57B;      --ok-ink:#082016;
+    --sheet-rule:#B9C2BB;
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ground);color:var(--ink);font-family:var(--body);
+    -webkit-font-smoothing:antialiased;line-height:1.55;padding:0 0 56px;
+  }
+  .wrap{max-width:1010px;margin:0 auto;padding:0 22px}
+  ::selection{background:var(--accent);color:var(--accent-ink)}
+
+  /* ---------- Kopf ---------- */
+  header{padding:30px 0 0}
+  .brandrow{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  h1{
+    font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.025em;
+    margin:0;line-height:1;text-transform:uppercase;
+  }
+  h1 em{font-style:normal;color:var(--accent);font-weight:500}
+  .sub-brand{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    margin:7px 0 0;letter-spacing:.01em
+  }
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  select,.seg button,.ghost{
+    font-family:var(--body);font-size:13px;color:var(--ink);
+    background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+    padding:7px 10px;cursor:pointer;
+  }
+  select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--panel)}
+  .seg button{border:0;border-radius:0;background:transparent;color:var(--muted);font-weight:500}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+
+  /* ---------- Fortschritt: eine Kette aus vierzehn Fünfecken ---------- */
+  .spine{margin:24px 0 0;padding-bottom:2px}
+  .spine svg{width:100%;height:auto;display:block;overflow:visible}
+  .spine .hit{cursor:pointer}
+  .spine-legend{
+    display:flex;gap:18px;font-size:11px;color:var(--muted);
+    font-family:var(--mono);margin-top:6px;flex-wrap:wrap;align-items:center
+  }
+  .pip{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:-1px;
+       clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%)}
+
+  /* ---------- Übungsblatt ---------- */
+  .card{
+    background:var(--panel);border:1px solid var(--rule);border-radius:4px;
+    margin-top:26px;overflow:hidden
+  }
+  .card-head{
+    padding:22px 26px 18px;border-bottom:1px solid var(--rule-soft);
+    display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 8px
+  }
+  .card-head h2{
+    font-family:var(--display);font-weight:600;font-size:27px;margin:0;
+    letter-spacing:-.025em;line-height:1.1;text-wrap:balance
+  }
+  .chips{display:flex;gap:6px;flex-wrap:wrap;max-width:50ch;justify-content:flex-end}
+  .chip{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    border:1px solid var(--rule);border-radius:2px;padding:4px 9px;white-space:nowrap
+  }
+  .chip.key{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);font-weight:500}
+  .chip.alt{color:var(--other);border-color:var(--other);background:var(--other-wash)}
+
+  .instruction{padding:20px 26px 0;font-size:15.5px;max-width:64ch}
+  .instruction .sub{color:var(--muted);font-size:13.5px;margin-top:9px}
+  .bookref{
+    margin:16px 26px 0;font-family:var(--mono);font-size:10.5px;line-height:1.6;
+    color:var(--muted);letter-spacing:.02em
+  }
+
+  /* ---------- Die fünf Töne ---------- */
+  .scalebar{
+    display:flex;align-items:stretch;gap:16px;flex-wrap:wrap;
+    margin:20px 26px 0;padding:0
+  }
+  .scalebar .lab{
+    font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--muted);align-self:center
+  }
+  .scalebar .tones{display:flex;gap:2px;flex-wrap:wrap}
+  .tone{
+    display:flex;flex-direction:column-reverse;align-items:center;
+    font-family:var(--display);font-weight:600;font-size:17px;
+    background:var(--panel-2);border-top:2px solid var(--rule);
+    padding:5px 12px 7px;min-width:48px;line-height:1.15
+  }
+  .tone i{
+    font-style:normal;font-family:var(--mono);font-size:9.5px;font-weight:400;
+    color:var(--muted);letter-spacing:.06em
+  }
+  .tone.other{border-top-color:var(--other);background:var(--other-wash);color:var(--other)}
+  .tone.other i{color:var(--other)}
+
+  /* ---------- Notenblatt: in jedem Theme echtes Papier ---------- */
+  .paper{
+    background:var(--sheet);border:1px solid var(--sheet-rule);
+    margin:22px 26px;padding:10px 8px;overflow-x:auto;
+  }
+  .paper svg{display:block;max-width:100%;height:auto}
+  .paper.empty{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:104px;
+    color:#5D6A61;font-size:13.5px;text-align:center;padding:24px;font-family:var(--body)
+  }
+
+  /* ---------- Zahlenansicht ---------- */
+  .numbers{padding:6px 26px 0}
+  .numgrid{display:flex;gap:2px;flex-wrap:wrap}
+  .cellbox{
+    border-top:2px solid var(--rule);background:var(--panel-2);
+    padding:8px 13px 11px;flex:1 1 140px;min-width:0
+  }
+  .cellbox .lab{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--muted);
+    text-transform:uppercase;margin-bottom:5px
+  }
+  .cellbox .sym{font-family:var(--display);font-weight:600;font-size:13.5px;margin-bottom:4px}
+  .cellbox .tok{
+    font-family:var(--mono);font-size:14.5px;color:var(--accent);white-space:nowrap;
+    font-weight:500;font-variant-numeric:tabular-nums
+  }
+  .numhint{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:12px}
+
+  /* ---------- Aktionen ---------- */
+  .actions{display:flex;gap:8px;padding:24px 26px 26px;flex-wrap:wrap}
+  .actions button{
+    flex:1 1 190px;font-family:var(--display);font-weight:600;font-size:15px;
+    border-radius:3px;padding:13px 16px;cursor:pointer;border:1px solid transparent;
+    letter-spacing:-.01em;transition:background .14s ease
+  }
+  #btn-reveal{background:transparent;border-color:var(--other);color:var(--other);flex-basis:100%}
+  #btn-reveal:hover{background:var(--other-wash)}
+  #btn-again{background:var(--panel-2);border-color:var(--rule);color:var(--ink)}
+  #btn-again:hover{background:var(--rule-soft)}
+  #btn-got{background:var(--ok);color:var(--ok-ink)}
+  #btn-got:hover{filter:brightness(1.09)}
+  .actions small{display:block;font-family:var(--body);font-weight:400;font-size:11.5px;opacity:.8;margin-top:3px}
+
+  /* ---------- Fuss ---------- */
+  footer{
+    display:flex;justify-content:space-between;gap:14px;margin-top:18px;
+    flex-wrap:wrap;align-items:center
+  }
+  .stats{font-family:var(--mono);font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .ghost{background:transparent;color:var(--muted);font-size:11.5px;border-color:transparent}
+  .ghost:hover{color:var(--ink);border-color:var(--rule)}
+  .footer-btns{display:flex;gap:6px;flex-wrap:wrap}
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:22px;
+    background:var(--ink);color:var(--ground);font-family:var(--display);font-weight:600;
+    padding:12px 20px;border-radius:3px;font-size:14px;opacity:0;pointer-events:none;
+    transition:opacity .22s ease, bottom .22s ease;z-index:20;max-width:88vw;text-align:center
+  }
+  .toast.show{opacity:1;bottom:30px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+  @media (max-width:660px){
+    h1{font-size:19px}
+    .card-head h2{font-size:21px}
+    .chips{justify-content:flex-start;max-width:none}
+    .card-head{padding:18px 16px 15px}
+    .paper{margin:18px 16px}
+    .instruction,.numbers,.actions{padding-left:16px;padding-right:16px}
+    .bookref,.scalebar{margin-left:16px;margin-right:16px}
+    .scalebar{gap:9px}
+    .tone{min-width:42px;padding:5px 9px 7px;font-size:15px}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brandrow">
+      <div>
+        <h1>Pentatonics <em>·</em> Übungstrainer</h1>
+        <p class="sub-brand">Jerry Bergonzi · Inside Improvisation Vol. 2</p>
+      </div>
+      <div class="controls">
+        <select id="sel-inst" aria-label="Stimmung">
+          <option value="C">C (Klavier, Flöte)</option>
+          <option value="Bb">B♭ (Trompete, Tenor)</option>
+          <option value="Eb">E♭ (Alt, Bariton)</option>
+          <option value="bass">Bassschlüssel</option>
+        </select>
+        <div class="seg" role="group" aria-label="Ansicht">
+          <button id="v-notes" aria-pressed="true">Noten</button>
+          <button id="v-nums" aria-pressed="false">Zahlen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="spine">
+      <svg id="spine" viewBox="0 0 960 74" role="img" aria-label="Fortschritt über alle Stufen"></svg>
+      <div class="spine-legend">
+        <span><i class="pip" style="background:var(--ok)"></i>sitzt</span>
+        <span><i class="pip" style="background:var(--accent)"></i>in Arbeit</span>
+        <span><i class="pip" style="background:var(--rule)"></i>offen</span>
+        <span id="lvl-name"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow" id="eyebrow">Stufe 1</p>
+        <h2 id="title">…</h2>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div class="instruction" id="instruction"></div>
+    <p class="bookref" id="bookref"></p>
+
+    <div class="scalebar" id="scalebar">
+      <span class="lab">Skala</span>
+      <span class="tones" id="tones"></span>
+      <span class="tones" id="tones-out"></span>
+    </div>
+
+    <div class="paper" id="paper"></div>
+    <div class="numbers" id="numbers" hidden></div>
+
+    <div class="actions">
+      <button id="btn-reveal" hidden>Lösung zeigen</button>
+      <button id="btn-again">Nochmal üben<small>kommt bald wieder</small></button>
+      <button id="btn-got">Sitzt<small>aus dem Umlauf nehmen</small></button>
+    </div>
+  </main>
+
+  <footer>
+    <div class="stats" id="stats"></div>
+    <div class="footer-btns">
+      <button class="ghost" id="btn-level-done">Diese Stufe komplett markieren</button>
+      <button class="ghost" id="btn-reset">Fortschritt zurücksetzen</button>
+    </div>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vexflow/4.2.2/vexflow.js"></script>
+<script>
+/* =========================================================
+   1 · TONHÖHEN-MODELL
+   Note = {l: Buchstabe 0..6 (C..B), a: Vorzeichen -2..2, o: Oktave}
+   ========================================================= */
+const LETTERS = ['C','D','E','F','G','A','B'];
+const LPC     = [0,2,4,5,7,9,11];
+
+const midi = n => (n.o + 1) * 12 + LPC[n.l] + n.a;
+const cp   = n => ({l:n.l, a:n.a, o:n.o});
+
+function noteName(n){
+  return LETTERS[n.l] + (n.a > 0 ? '♯'.repeat(n.a) : n.a < 0 ? '♭'.repeat(-n.a) : '');
+}
+function vexKey(n){
+  const acc = n.a > 0 ? '#'.repeat(n.a) : n.a < 0 ? 'b'.repeat(-n.a) : '';
+  return LETTERS[n.l].toLowerCase() + acc + '/' + n.o;
+}
+function parseRoot(s){
+  const l = LETTERS.indexOf(s[0]);
+  let a = 0;
+  for (const c of s.slice(1)) a += (c === '#' ? 1 : -1);
+  return {l, a, o:4};
+}
+/* Gleicher Klang, anderer Notenbuchstabe – die Grundlage jeder
+   Schreibweisen-Entscheidung (Fis statt Ges und umgekehrt). */
+function respell(n, dl){
+  const abs = midi(n);
+  const l = ((n.l + dl) % 7 + 7) % 7;
+  let o = n.o + Math.floor((n.l + dl) / 7);
+  let a = abs - ((o + 1) * 12 + LPC[l]);
+  while (a >  6){ o++; a = abs - ((o + 1) * 12 + LPC[l]); }
+  while (a < -6){ o--; a = abs - ((o + 1) * 12 + LPC[l]); }
+  return {l, a, o};
+}
+/* Transposition der notierten Stimme: dl verschiebt den Buchstaben,
+   ds die Halbtöne – erst beides zusammen ergibt das richtige Intervall. */
+function transposeBy(n, dl, ds){
+  const target = midi(n) + ds;
+  const l = ((n.l + dl) % 7 + 7) % 7;
+  let o = n.o + Math.floor((n.l + dl) / 7);
+  let a = target - ((o + 1) * 12 + LPC[l]);
+  while (a >  6){ o++; a = target - ((o + 1) * 12 + LPC[l]); }
+  while (a < -6){ o--; a = target - ((o + 1) * 12 + LPC[l]); }
+  return {l, a, o};
+}
+const TRANSPOSE = { C:[0,0], Bb:[1,2], Eb:[5,9], bass:[0,0] };
+
+/* Um n Halbtöne höher, mit der Schreibweise, die am wenigsten Vorzeichen
+   kostet. Ohne diese Wahl würde aus C + 7 Halbtönen ein C mit sieben
+   Kreuzen statt eines G. */
+function shiftPitch(n, semis){
+  let best = null, bs = Infinity;
+  for (let dl = 0; dl < 7; dl++){
+    const c = transposeBy(n, dl, semis);
+    const sc = Math.abs(c.a) * 10 + (c.a > 0 ? (n.a > 0 ? 0 : 1) : c.a < 0 ? (n.a > 0 ? 1 : 0) : 0);
+    if (sc < bs){ bs = sc; best = c; }
+  }
+  return best;
+}
+
+/* Tonhöhenklasse in Buchstabe + Vorzeichen übersetzen, mit Vorliebe für
+   Kreuze oder B-Vorzeichen – für Akkordsymbole. */
+/* His, Eis, Ces und Fes sind zwar korrekt, aber niemand liest sie gern.
+   Wo eine gleichklingende Schreibweise ohne sie auskommt, gewinnt die. */
+function awkward(n){
+  return (n.a === 1 && (n.l === 2 || n.l === 6)) || (n.a === -1 && (n.l === 0 || n.l === 3));
+}
+function spellPc(pcTarget, preferSharp){
+  let best = null, bs = Infinity;
+  for (let l = 0; l < 7; l++){
+    const a = ((pcTarget - LPC[l]) % 12 + 18) % 12 - 6;
+    const n = {l, a, o:4};
+    /* Ais7alt und Dis-7 sind korrekt, aber niemand schreibt sie so –
+       B♭ und E♭ gewinnen gegen ihre Kreuz-Zwillinge. */
+    const twin = (a === 1 && (n.l === 1 || n.l === 5)) ? 4 : 0;
+    const score = Math.abs(a) * 10 + (awkward(n) ? 6 : 0) + twin
+                + (a > 0 ? (preferSharp ? 0 : 1) : a < 0 ? (preferSharp ? 1 : 0) : 0);
+    if (score < bs){ bs = score; best = n; }
+  }
+  return best;
+}
+
+/* =========================================================
+   2 · PENTATONISCHE SKALEN
+   Jede Skala als Liste [Buchstabenabstand, Halbtonabstand] vom Grundton.
+   So lassen sich auch Skalen schreiben, in denen ein Buchstabe zweimal
+   vorkommt – etwa B♭ und B♮ in der Dur-♭6-Pentatonik.
+   ========================================================= */
+const SCALES = {
+  m7:  { id:'m7',  name:'Moll-7-Pentatonik',   suffix:'-7',  chord:'-7',
+         deg:[[0,0],[2,3],[3,5],[4,7],[6,10]], nums:['1','3','4','5','7'],
+         note:'Zahlen im Moll-Bezug: 3 = kleine Terz, 7 = kleine Septime.' },
+  m6:  { id:'m6',  name:'Moll-6-Pentatonik',   suffix:'-6',  chord:'-6',
+         deg:[[0,0],[2,3],[3,5],[4,7],[5,9]],  nums:['1','3','4','5','6'],
+         note:'Die 6 ersetzt die 7 der Moll-7-Pentatonik – nur ein Ton Unterschied.' },
+  Mb6: { id:'Mb6', name:'Dur-♭6-Pentatonik',   suffix:'∆♭6', chord:'∆',
+         deg:[[0,0],[1,2],[2,4],[4,7],[4,8]],
+         degAlt:[ [[0,0],[1,2],[2,4],[4,7],[5,8]] ],
+         nums:['1','2','3','5','♭6'],
+         note:'Aus der Moll-7-Pentatonik: der Grundton wird zum Leitton (C → B).' },
+  m7b5:{ id:'m7b5',name:'Moll-7♭5-Pentatonik', suffix:'ø',   chord:'ø',
+         deg:[[0,0],[2,3],[3,5],[4,6],[6,10]], nums:['1','3','4','♭5','7'],
+         note:'Aus der Moll-7-Pentatonik: die 5 wird zur ♭5 (G → G♭).' },
+  Mb2: { id:'Mb2', name:'Dur-♭2-Pentatonik',   suffix:'∆♭2', chord:'∆',
+         deg:[[0,0],[1,1],[2,4],[4,7],[5,9]],
+         degAlt:[ [[0,0],[0,1],[2,4],[4,7],[5,9]],
+                  [[0,0],[1,1],[3,4],[4,7],[6,9]],
+                  [[0,0],[1,1],[3,4],[4,7],[5,9]],
+                  [[0,0],[1,1],[2,4],[4,7],[6,9]] ],
+         nums:['1','♭2','3','5','6'],
+         note:'Die ♭2 ist dieselbe Note wie die ♭9.' },
+  /* Die Ganzton-Pentatonik lässt sich nicht in allen Tonarten mit derselben
+     Buchstabenfolge schreiben (E♭ bräuchte ein Heses). Deshalb mehrere
+     gleichklingende Schreibweisen zur Auswahl – die Stufenzahlen bleiben
+     davon unberührt. */
+  wt:  { id:'wt',  name:'Ganzton-Pentatonik',  suffix:' WT', chord:'7alt',
+         deg:[[0,0],[2,4],[4,6],[5,8],[6,10]],
+         degAlt:[ [[0,0],[2,4],[3,6],[4,8],[6,10]],
+                  [[0,0],[2,4],[3,6],[5,8],[6,10]],
+                  [[0,0],[2,4],[4,6],[4,8],[6,10]],
+                  [[0,0],[2,4],[3,6],[3,8],[6,10]],
+                  [[0,0],[3,4],[4,6],[5,8],[6,10]],
+                  [[0,0],[3,4],[4,6],[4,8],[6,10]] ],
+         nums:['1','3','♭5','♭6','♭7'],
+         note:'Aus der Moll-6-Pentatonik: der Grundton rutscht einen Halbton nach unten.' }
+};
+
+/* Akkorde, über die eine Skala passt – Halbtonabstand vom Skalengrundton.
+   Direkt aus Bergonzis Listen (Kap. 4, 6, 8, 9, 10, 11). */
+const FITS = {
+  m7:  [[0,'-7'],[3,'∆'],[5,'-7'],[8,'∆'],[10,'-7'],[1,'∆'],[9,'7alt'],[3,'7']],
+  m6:  [[0,'-6'],[5,'7'],[9,'ø'],[11,'7alt'],[9,'7alt'],[3,'∆♯11'],[3,'7♯11'],[2,'7♭9sus'],[1,'∆♯5']],
+  Mb6: [[5,'-∆'],[4,'7alt'],[10,'7♯11'],[2,'ø♮9'],[8,'∆♯5']],
+  m7b5:[[0,'ø'],[3,'-6'],[8,'7'],[2,'7alt'],[6,'∆♭5']],
+  Mb2: [[9,'7'],[0,'7'],[3,'7'],[6,'7']],
+  wt:  [[1,'-∆'],[6,'7♯11'],[0,'7alt'],[8,'7♮9♭13']]
+};
+
+function buildScale(root, deg){
+  return deg.map(([dl, ds]) => {
+    const l = (root.l + dl) % 7;
+    const o = root.o + Math.floor((root.l + dl) / 7);
+    const a = (midi(root) + ds) - ((o + 1) * 12 + LPC[l]);
+    return {l, a, o};
+  });
+}
+function scaleScore(root, deg){
+  let sc = 0;
+  for (const n of buildScale(root, deg)){
+    if (Math.abs(n.a) > 2) return Infinity;
+    sc += Math.abs(n.a) + (Math.abs(n.a) > 1 ? 40 : 0) + (awkward(n) ? 4 : 0);
+  }
+  return sc;
+}
+/* Manche Grundtöne erzeugen bei bestimmten Skalen Doppelvorzeichen
+   (Gis-Dur-♭6 hätte ein Disis). Dann wird entweder der Grundton anders
+   geschrieben oder – wo die Skala das anbietet – eine gleichklingende
+   Schreibweise der Skala selbst genommen. Gesucht ist die Kombination
+   mit den wenigsten Vorzeichen. */
+/* Im Jazz übliche Schreibweisen bevorzugen: E♭-7 liest sich jeder,
+   D♯-7 stolpert – obwohl beide gleich viele Vorzeichen haben. */
+function rootPenalty(n){
+  if (Math.abs(n.a) > 1) return 30;
+  const s = LETTERS[n.l] + (n.a > 0 ? '#' : n.a < 0 ? 'b' : '');
+  if (s === 'E#' || s === 'B#' || s === 'Cb' || s === 'Fb') return 24;
+  if (s === 'D#' || s === 'A#') return 8;
+  if (n.a !== 0) return 1;
+  return 0;
+}
+function chooseScale(root, S){
+  const sets = [S.deg, ...(S.degAlt || [])];
+  const roots = [root, respell(root, -1), respell(root, 1), respell(root, -2), respell(root, 2)];
+  let best = { root, deg:S.deg }, bs = Infinity;
+  roots.forEach((r, ri) => {
+    if (Math.abs(r.a) > 2) return;
+    sets.forEach((deg, si) => {
+      const s = scaleScore(r, deg);
+      if (s === Infinity) return;
+      const sc = s + (ri === 0 ? 0 : 3) + (si === 0 ? 0 : 1) + rootPenalty(r);
+      if (sc < bs){ bs = sc; best = { root:r, deg }; }
+    });
+  });
+  return best;
+}
+/* Skalenton an beliebigem Index (auch unter 0 oder über 4) */
+function noteAt(scale, idx){
+  const i = ((idx % 5) + 5) % 5;
+  const o = Math.floor(idx / 5);
+  const n = cp(scale[i]);
+  n.o += o;
+  return n;
+}
+/* Welche Buchstaben kommen in der Skala doppelt vor? Dort braucht die
+   unveränderte Stufe ein Auflösungszeichen, sonst liest man sie falsch. */
+function ambiguousLetters(scale){
+  const seen = {}, amb = new Set();
+  scale.forEach(n => { if (seen[n.l] !== undefined && seen[n.l] !== n.a) amb.add(n.l); seen[n.l] = n.a; });
+  return amb;
+}
+
+/* =========================================================
+   3 · FORMELN (Skip & Step)
+   Ein "Step" ist der Schritt zum Nachbarton der Pentatonik, ein "Skip"
+   überspringt einen Ton, ein "Doppel-Skip" zwei. Eine Formel ist ein
+   Zyklus aus vier Bewegungen; drei davon verbinden die vier Töne einer
+   Gruppe, die vierte führt zur nächsten Gruppe. Nach fünf Gruppen ist
+   man wieder beim Ausgangston – das sind die 20 Töne einer Linie.
+   ========================================================= */
+const MOVE_LABEL = { '-3':'↓Doppel-Skip','-2':'↓Skip','-1':'↓Step','1':'↑Step','2':'↑Skip','3':'↑Doppel-Skip' };
+const rot = (a, k) => a.slice(k).concat(a.slice(0, k));
+
+function makeFamily(prefix, base, famName, famShort){
+  return [0,1,2,3].map(k => {
+    const moves = rot(base, k);
+    return {
+      id: prefix + (k + 1), no: k + 1, fam: prefix, famName, famShort,
+      label: famShort + ' · Formel ' + (k + 1),
+      moves, arrows: moves.map(m => MOVE_LABEL[String(m)]).join(' ')
+    };
+  });
+}
+const FAM = {
+  /* Kapitel 2 – die acht Grundformeln */
+  A: makeFamily('a', [-2,-1, 2,-1], 'Skip & Step, absteigend', 'Kap. 2'),
+  B: makeFamily('b', [ 2, 1,-2, 1], 'Skip & Step, aufsteigend', 'Kap. 2'),
+  /* Kapitel 7 – Doppel-Skips */
+  C: makeFamily('c', [ 3,-2,-2, 3], 'Doppel-Skip aufwärts', 'Kap. 7 · Ex. 7.1'),
+  D: makeFamily('d', [-3, 2, 2,-3], 'Doppel-Skip abwärts', 'Kap. 7 · Ex. 7.2'),
+  E: makeFamily('e', [-2,-2,-2, 3], 'Weite Intervalle, absteigend', 'Kap. 7 · Ex. 7.3'),
+  F: makeFamily('f', [ 2, 2, 2,-3], 'Weite Intervalle, aufsteigend', 'Kap. 7 · Ex. 7.4')
+};
+const FORMULAS = {};
+Object.values(FAM).flat().forEach(f => FORMULAS[f.id] = f);
+const F_DOWN = FAM.A.map(f => f.id);          // a1..a4
+const F_UP   = FAM.B.map(f => f.id);          // b1..b4
+const F_ALL8 = [...F_DOWN, ...F_UP];
+const F_DBL  = [...FAM.C, ...FAM.D, ...FAM.E, ...FAM.F].map(f => f.id);
+
+/* Rohe Indexfolge einer Linie */
+function lineIdx(startIdx, moves, groups){
+  const out = [];
+  let idx = startIdx;
+  for (let g = 0; g < groups; g++){
+    for (let k = 0; k < 4; k++){
+      out.push({ idx, group:g });
+      idx += moves[k];
+    }
+  }
+  return out;
+}
+/* Oktavlage: jede Vierergruppe so legen, dass sie im Umfang bleibt und
+   möglichst nah an der vorigen anschliesst. Bergonzi: "Make octave
+   adjustments whenever they are convenient." */
+function placeGroups(items, lo, hi){
+  const out = [];
+  const nG = Math.max(...items.map(i => i.group)) + 1;
+  let prev = null;
+  for (let g = 0; g < nG; g++){
+    const grp = items.filter(i => i.group === g);
+    const ms = grp.map(i => midi(i.n));
+    const mn = Math.min(...ms), mx = Math.max(...ms);
+    let best = 0, bd = Infinity;
+    for (let k = -4; k <= 4; k++){
+      if (mn + 12 * k < lo || mx + 12 * k > hi) continue;
+      const d = prev === null
+        ? Math.abs((mn + mx) / 2 + 12 * k - (lo + hi) / 2)
+        : Math.abs(ms[0] + 12 * k - prev);
+      if (d < bd){ bd = d; best = k; }
+    }
+    if (bd === Infinity) best = Math.round(((lo + hi) / 2 - (mn + mx) / 2) / 12);
+    grp.forEach(i => out.push({ ...i, n:{ ...i.n, o:i.n.o + best } }));
+    prev = midi(out[out.length - 1].n);
+  }
+  return out;
+}
+/* Nächster Ton der Zielpentatonik unter- bzw. oberhalb eines Bezugstons */
+function nearestIdx(scale, m, below){
+  let best = 0, bd = Infinity;
+  for (let idx = -20; idx <= 30; idx++){
+    const v = midi(noteAt(scale, idx));
+    const ok = below ? v < m : v > m;
+    if (!ok) continue;
+    const d = Math.abs(v - m);
+    if (d < bd){ bd = d; best = idx; }
+  }
+  return best;
+}
+
+/* =========================================================
+   4 · RHYTHMISCHE VARIANTEN (Kapitel 3)
+   Die Zelle gibt die Notenwerte in Achteln an und wird über die ganze
+   Linie wiederholt – dadurch verschiebt sich die Phrase gegen den Takt.
+   ========================================================= */
+const RHYTHMS = {
+  r0: { id:'r0', label:'Alle Achtel', cell:null,
+        text:'Erst gleichmässig: die ganze Linie in Achteln, im Tempo, in dem du sie auch spielen willst. Alles Weitere baut darauf auf.' },
+  rA: { id:'rA', label:'Muster A · ♪ ♪ ♩', cell:[1,1,2],
+        text:'Zwei Achtel, eine Viertel – immer wieder. Die Zelle ist zwei Schläge lang und liegt damit taktgleich; das Muster hörbar machen, nicht nur abspielen.' },
+  rB: { id:'rB', label:'Muster B · ♪ ♪ ♪ ♪ ♩', cell:[1,1,1,1,2],
+        text:'Vier Achtel, eine Viertel. Die Zelle ist drei Schläge lang und wandert dadurch gegen den 4/4 – genau das ist der Zweck.' },
+  rC: { id:'rC', label:'Muster C · 6 × ♪ + ♩', cell:[1,1,1,1,1,1,2],
+        text:'Sechs Achtel, eine Viertel. Vier Schläge lang, also taktgleich – aber die Viertel fällt jedes Mal auf die Vier.' },
+  rD: { id:'rD', label:'Pausen & Synkopen', cell:null,
+        text:'Jetzt frei: Töne weglassen, Phrasen auf dem Off beginnen und enden, Töne wiederholen. Die Pausen machen aus der Übung Musik.' }
+};
+
+/* =========================================================
+   5 · TONARTEN & AKKORDSYMBOLE
+   ========================================================= */
+const KEYS = ['C','C#','D','Eb','E','F','F#','G','G#','A','Bb','B'];
+/* Bergonzis Zyklen laufen in grossen Terzen mit Halbtonrückung –
+   Progression 1, 2, 4, 5, 6 und 13 benutzen alle dieselbe Reihenfolge. */
+const CYCLE = ['C','E','Ab','B','Eb','G','Bb','D','F#','A','C#','F'];
+
+function chordSym(rootNote, semis, suffix, sharpish){
+  const pc = ((midi(rootNote) + semis) % 12 + 12) % 12;
+  const r = spellPc(pc, sharpish === undefined ? rootNote.a > 0 : sharpish);
+  return noteName(r) + suffix;
+}
+/* Denkt die Übung eher in Kreuzen oder in B-Vorzeichen? */
+const sharpish = scale => scale.reduce((a, n) => a + Math.sign(n.a), 0) > 0;
+
+/* =========================================================
+   6 · STUFEN
+   ========================================================= */
+const LEVELS = [
+  { n:1, id:'quiz', title:'Die Moll-7-Pentatonik im Kopf',
+    head:'Memorizing Quiz · alle zwölf Tonarten',
+    text:'Der Akkord steht da, ein Ton ist gegeben – spiele von dort aus die übrigen vier Töne der Pentatonik, erst abwärts, dann aufwärts. Ohne Instrument denken, dann spielen. Bergonzi baut das ganze Buch darauf auf, dass diese fünf Töne in jeder Tonart sofort abrufbar sind.',
+    ref:'Buch: Kapitel 1, S. 9–12 · Memorizing Quiz S. 12' },
+
+  { n:2, id:'l2', title:'Formeln 1–4: Skip & Step abwärts',
+    head:'Vier Formeln, zwölf Tonarten',
+    text:'Die Grundformel ↓Skip ↓Step ↑Skip ↓Step und ihre drei Drehungen. Fünf Vierergruppen, bis die Linie wieder beim Ausgangston ist. Achte darauf, dass die ersten Töne der Gruppen selbst eine absteigende Skip-Kette bilden – daran hörst du, ob du richtig liegst.',
+    ref:'Buch: Kapitel 2, S. 13–26 · Formeltabelle Ex. 2.7' },
+
+  { n:3, id:'l3', title:'Formeln 5–8: dieselben Wege aufwärts',
+    head:'Pfeile umgedreht',
+    text:'Dieselben vier Formeln mit umgekehrten Pfeilrichtungen. Die ersten Töne der Gruppen steigen jetzt in Skips auf. Wichtig: erst wenn die absteigenden Formeln in allen Tonarten laufen, lohnt sich diese Stufe.',
+    ref:'Buch: Kapitel 2, S. 13–26 · Formeltabelle Ex. 2.8' },
+
+  { n:4, id:'l4', title:'Rhythmische Variation',
+    head:'Dieselben Töne, anderer Puls',
+    text:'Die Linien im Buch stehen ohne Notenhälse – weil sie in jedem Rhythmus gespielt werden können. Nimm eine Formel und lege das angegebene Muster darüber.',
+    ref:'Buch: Kapitel 3, S. 27–28' },
+
+  { n:5, id:'l5', title:'Akkorde und Pentatoniken',
+    head:'Drei Pentatoniken pro Akkord',
+    text:'Über einen Moll-7-Akkord passen drei Moll-7-Pentatoniken: die vom Grundton, die von der Quinte (bringt die 9) und die von der grossen Sekunde. Über einen Dur-7-Akkord dieselbe Logik von der Sexte, der Terz und der Septime aus. Spiele die Formel mit der angegebenen Pentatonik und höre, was der Akkord daraus macht.',
+    ref:'Buch: Kapitel 4, S. 29–38 · Progression 1 (S. 29) und 2 (S. 30)' },
+
+  { n:6, id:'l6', title:'Flexibilität: Startton gegeben',
+    head:'Linie selbst vervollständigen',
+    text:'Nur der erste Ton steht da. Vervollständige die Linie mit der angegebenen Formel – ohne die Lösung anzusehen. Bergonzi lässt das in fünf Chorussen über zwölf Takte laufen und wechselt die Starttöne nach festen Reihen (1 5 3 7 4, 1 3 4 5 7, 1 4 7 3 5, 1 7 5 4 3).',
+    ref:'Buch: Kapitel 5, S. 39–52' },
+
+  { n:7, id:'l7', title:'Die Moll-6-Pentatonik',
+    head:'Ein Ton anders, ganz andere Welt',
+    text:'Die 6 ersetzt die 7. Bergonzi schreibt die acht Formeln bewusst nicht noch einmal aus: nimm die Linien, die du kennst, und ändere im Kopf den einen Ton. Wenn das gelingt, sitzen die Formeln wirklich.',
+    ref:'Buch: Kapitel 6, S. 53–56' },
+
+  { n:8, id:'l8', title:'Moll 6 über Dominanten und Altered',
+    head:'Wo die Skala wirklich hingehört',
+    text:'Die Moll-6-Pentatonik klingt selten über einen Moll-6-Akkord. Sie ist die Skala für Dominanten (von der Quinte aus), für Altered-Akkorde (von der ♭9 oder ♯9 aus) und für halbverminderte Akkorde. Der Akkord steht oben, die Pentatonik daneben.',
+    ref:'Buch: Kapitel 6, S. 57–72 · Progressionen 4–10' },
+
+  { n:9, id:'l9', title:'Mehr Muster für Moll 6',
+    head:'Doppel-Skips und weite Intervalle',
+    text:'Vier neue Formelfamilien mit Doppel-Skips. Wegen der Intervallgrössen sind Oktavversetzungen hier ausdrücklich erwünscht – spiele die Linie so, wie sie auf deinem Instrument liegt.',
+    ref:'Buch: Kapitel 7, S. 73–78' },
+
+  { n:10, id:'l10', title:'Die Dur-♭6-Pentatonik',
+    head:'Aus C wird B',
+    text:'Zurück zur Moll-7-Pentatonik, aber der Grundton wird zum Leitton. Aus C E♭ F G B♭ wird E♭ F G B♭ B – eine Skala für Moll-Dur-Septakkorde, Altered-Dominanten und ♯11-Klänge.',
+    ref:'Buch: Kapitel 8, S. 79–86 · Progression 12' },
+
+  { n:11, id:'l11', title:'Die Moll-7♭5-Pentatonik',
+    head:'Die Quinte wird zur ♭5',
+    text:'Wieder nur ein Ton Unterschied zur Ausgangsskala. Diese Pentatonik beginnt auf der ♭5 eines ∆♭5-Akkords – über C∆♭5 spielst du also F♯ø-Pentatonik.',
+    ref:'Buch: Kapitel 9, S. 87–94 · Progression 13' },
+
+  { n:12, id:'l12', title:'Die Dur-♭2-Pentatonik',
+    head:'Vier Skalen über einer Dominante',
+    text:'Die 4 wird zur grossen Terz des Zielklangs. Über einer Dominante mit ♭9 und ♮13 passen gleich vier ♭2-Pentatoniken – erst jede einzeln anhören, dann mischen.',
+    ref:'Buch: Kapitel 10, S. 95–104 · Progression 15' },
+
+  { n:13, id:'l13', title:'Die Ganzton-Pentatonik',
+    head:'Grundton einen Halbton tiefer',
+    text:'Aus der Moll-6-Pentatonik: C E♭ F G A wird zu B E♭ F G A. Vier Töne davon liegen im Ganztonraum – die Skala für Moll-Dur-Klänge, Lydisch ♭7 und Altered.',
+    ref:'Buch: Kapitel 11, S. 105–112 · Progression 17' },
+
+  { n:14, id:'l14', title:'Poly-Pentatonik',
+    head:'Bewusst daneben',
+    text:'Eine Vierergruppe aus der Stamm-Pentatonik, dann eine aus einer fremden – im Wechsel. Wie weit "aussen" es klingt, hängt davon ab, wie viele gemeinsame Töne beide Skalen haben. Jede neue Gruppe beginnt auf dem nächstgelegenen Ton der anderen Pentatonik.',
+    ref:'Buch: Kapitel 13, S. 115–124 · Progression 18' }
+];
+
+/* Poly-Pentatonik: Abstand in Halbtönen → wie weit "aussen" (Kap. 13) */
+const OUT_DEGREES = [
+  { deg:1, common:0, semis:[11, 1, 6], text:'kein gemeinsamer Ton – so weit weg wie möglich' },
+  { deg:2, common:1, semis:[8, 4],     text:'ein gemeinsamer Ton' },
+  { deg:3, common:2, semis:[3, 9],     text:'zwei gemeinsame Töne' },
+  { deg:4, common:3, semis:[10, 2],    text:'drei gemeinsame Töne' },
+  { deg:5, common:4, semis:[5, 7],     text:'vier gemeinsame Töne – klingt fast noch drinnen' }
+];
+const POLY_VARIANTS = [
+  { id:'p1', dir:'desc', ref:'first', label:'ab dem 1. Ton',     ex:'Ex. 13.6',
+    how:'dem nächstgelegenen Ton unterhalb des ersten Tons der vorigen Gruppe' },
+  { id:'p2', dir:'desc', ref:'last',  label:'ab dem letzten Ton', ex:'Ex. 13.7',
+    how:'dem nächstgelegenen Ton unterhalb des letzten Tons der vorigen Gruppe' },
+  { id:'p3', dir:'asc',  ref:'first', label:'ab dem 1. Ton',      ex:'Ex. 13.8',
+    how:'dem nächstgelegenen Ton oberhalb des ersten Tons der vorigen Gruppe' },
+  { id:'p4', dir:'asc',  ref:'last',  label:'ab dem letzten Ton', ex:'Ex. 13.9',
+    how:'dem nächstgelegenen Ton oberhalb des letzten Tons der vorigen Gruppe' }
+];
+/* Startton-Reihen aus Kapitel 5 */
+const START_ORDERS = [
+  { id:'o1', label:'1 5 3 7 4', order:[0,3,1,4,2] },
+  { id:'o2', label:'1 3 4 5 7', order:[0,1,2,3,4] },
+  { id:'o3', label:'1 4 7 3 5', order:[0,2,4,1,3] },
+  { id:'o4', label:'1 7 5 4 3', order:[0,4,3,2,1] }
+];
+
+/* =========================================================
+   7 · ÜBUNGEN ERZEUGEN
+   ========================================================= */
+function hash(str){
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+/* Gleichmässig ausdünnen: reihum über die Tonarten, damit keine Tonart
+   aus der Stufe herausfällt. */
+function thin(list, cap){
+  if (list.length <= cap) return list;
+  const b = new Map();
+  list.forEach(e => { const k = e.key || '-'; if (!b.has(k)) b.set(k, []); b.get(k).push(e); });
+  const keys = [...b.keys()], out = [];
+  for (let i = 0; out.length < cap; i++){
+    let added = false;
+    for (const k of keys){
+      const arr = b.get(k);
+      if (i < arr.length){ out.push(arr[i]); added = true; if (out.length >= cap) break; }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
+function gen(){
+  const all = [];
+  const push = (lvl, list, cap) => {
+    thin(list, cap).forEach(e => all.push({ ...e, level:lvl }));
+  };
+
+  /* Stufe 1 – Memorizing Quiz */
+  {
+    const l = [];
+    for (const k of KEYS) for (let d = 0; d < 5; d++) for (const dir of ['down','up'])
+      l.push({ id:`L1·${k}·${d}·${dir}`, type:'quiz', scale:'m7', key:k, start:d, dir });
+    push(1, l, 40);
+  }
+  /* Stufe 2 / 3 – Formeln 1–4 bzw. 5–8 auf Moll 7 */
+  {
+    const l2 = [], l3 = [];
+    for (const f of F_DOWN) for (const k of KEYS)
+      l2.push({ id:`L2·${k}·${f}`, type:'line', scale:'m7', key:k, formula:f });
+    for (const f of F_UP) for (const k of KEYS)
+      l3.push({ id:`L3·${k}·${f}`, type:'line', scale:'m7', key:k, formula:f });
+    push(2, l2, 48); push(3, l3, 48);
+  }
+  /* Stufe 4 – Rhythmus */
+  {
+    const l = [], rk = Object.keys(RHYTHMS);
+    rk.forEach((r, ri) => KEYS.forEach((k, ki) => {
+      l.push({ id:`L4·${k}·${r}`, type:'line', scale:'m7', key:k,
+               formula: F_ALL8[(ri * 5 + ki) % 8], rhythm:r });
+    }));
+    push(4, l, 40);
+  }
+  /* Stufe 5 – Akkorde und Pentatoniken */
+  {
+    const l = [];
+    /* Über Moll 7: Pentatonik vom Grundton, von der Quinte, von der Sekunde */
+    const minSubs = [[0,'vom Grundton'], [7,'von der Quinte (bringt die 9)'], [2,'von der grossen Sekunde']];
+    /* Über Dur 7: Pentatonik von der Sexte, der Terz, der Septime */
+    const majSubs = [[9,'von der Sexte'], [4,'von der Terz'], [11,'von der Septime']];
+    KEYS.forEach((k, i) => {
+      minSubs.forEach(([s, why], j) =>
+        l.push({ id:`L5·m·${k}·${j}`, type:'line', scale:'m7', key:k, formula:F_DOWN[j % 4],
+                 penShift:s, over:{ semis:0, suffix:'-7' }, why, cyc:{ name:'Progression 1 · Moll-7-Zyklus', pos:CYCLE.indexOf(k) } }));
+      majSubs.forEach(([s, why], j) =>
+        l.push({ id:`L5·M·${k}·${j}`, type:'line', scale:'m7', key:k, formula:F_UP[j % 4],
+                 penShift:s, over:{ semis:0, suffix:'∆' }, why, cyc:{ name:'Progression 2 · Dur-7-Zyklus', pos:CYCLE.indexOf(k) } }));
+    });
+    push(5, l, 36);
+  }
+  /* Stufe 6 – Startton gegeben */
+  {
+    const l = [];
+    START_ORDERS.forEach((ord, oi) => {
+      ord.order.forEach((d, di) => {
+        KEYS.forEach((k, ki) => {
+          l.push({ id:`L6·${ord.id}·${d}·${k}`, type:'start', scale:'m7', key:k, start:d,
+                   formula: F_ALL8[(oi * 2 + di) % 8], order:ord.id, orderPos:di });
+        });
+      });
+    });
+    push(6, l, 40);
+  }
+  /* Stufe 7 – Moll 6, acht Formeln */
+  {
+    const l = [];
+    for (const f of F_ALL8) for (const k of KEYS)
+      l.push({ id:`L7·${k}·${f}`, type:'line', scale:'m6', key:k, formula:f });
+    push(7, l, 48);
+  }
+  /* Stufe 8 – Moll 6 über Dominanten, Altered, halbvermindert, Moll 6 */
+  {
+    const l = [];
+    KEYS.forEach((k, i) => {
+      /* Dominante: Moll-6-Pentatonik von der Quinte */
+      l.push({ id:`L8·dom·${k}`, type:'line', scale:'m6', key:k, formula:F_DOWN[i % 4],
+               penShift:7, over:{ semis:0, suffix:'7' }, why:'Moll-6-Pentatonik von der Quinte',
+               cyc:{ name:'Progression 5 · Dominant-7-Zyklus', pos:CYCLE.indexOf(k) } });
+      /* Altered: von der ♭9 und von der ♯9 */
+      l.push({ id:`L8·alt1·${k}`, type:'line', scale:'m6', key:k, formula:F_UP[i % 4],
+               penShift:1, over:{ semis:0, suffix:'7alt' }, why:'Moll-6-Pentatonik von der ♭9',
+               cyc:{ name:'Progression 6 · Altered-Zyklus', pos:CYCLE.indexOf(k) } });
+      l.push({ id:`L8·alt2·${k}`, type:'line', scale:'m6', key:k, formula:F_DOWN[(i + 2) % 4],
+               penShift:3, over:{ semis:0, suffix:'7alt' }, why:'Moll-6-Pentatonik von der ♯9',
+               cyc:{ name:'Progression 6 · Altered-Zyklus', pos:CYCLE.indexOf(k) } });
+      /* Halbvermindert: Moll-6-Pentatonik von der kleinen Terz */
+      l.push({ id:`L8·hd·${k}`, type:'line', scale:'m6', key:k, formula:F_UP[(i + 1) % 4],
+               penShift:3, over:{ semis:0, suffix:'ø' }, why:'Moll-6-Pentatonik von der kleinen Terz',
+               cyc:{ name:'Progression 7 · Moll-7♭5-Zyklus', pos:CYCLE.indexOf(k) } });
+      /* Moll 6 selbst */
+      l.push({ id:`L8·m6·${k}`, type:'line', scale:'m6', key:k, formula:F_DOWN[(i + 1) % 4],
+               penShift:0, over:{ semis:0, suffix:'-6' }, why:'Pentatonik direkt vom Akkordgrundton',
+               cyc:{ name:'Progression 4 · Moll-6-Zyklus (3/4)', pos:CYCLE.indexOf(k) } });
+    });
+    push(8, l, 40);
+  }
+  /* Stufe 9 – Doppel-Skip-Formeln auf Moll 6 */
+  {
+    const l = [];
+    for (const f of F_DBL) for (const k of KEYS)
+      l.push({ id:`L9·${k}·${f}`, type:'line', scale:'m6', key:k, formula:f });
+    push(9, l, 48);
+  }
+  /* Stufen 10–13 – die weiteren Skalentypen */
+  [['Mb6',10],['m7b5',11],['Mb2',12],['wt',13]].forEach(([sc, lvl]) => {
+    const l = [];
+    for (const f of F_ALL8) for (const k of KEYS)
+      l.push({ id:`L${lvl}·${k}·${f}`, type:'line', scale:sc, key:k, formula:f });
+    push(lvl, l, 40);
+  });
+  /* Stufe 14 – Poly-Pentatonik */
+  {
+    const l = [];
+    KEYS.forEach((k, ki) => {
+      OUT_DEGREES.forEach(od => {
+        od.semis.forEach((s, si) => {
+          const v = POLY_VARIANTS[(ki + od.deg + si) % 4];
+          l.push({ id:`L14·${k}·${od.deg}·${s}·${v.id}`, type:'poly', scale:'m7', key:k,
+                   out:s, outDeg:od.deg, variant:v.id });
+        });
+      });
+    });
+    push(14, l, 48);
+  }
+  return all;
+}
+const EXERCISES = gen();
+const byLevel = n => EXERCISES.filter(e => e.level === n);
+
+/* =========================================================
+   8 · EINE ÜBUNG AUSRECHNEN
+   ========================================================= */
+function rangeFor(inst){
+  return inst === 'bass' ? [40, 65] : [55, 81];
+}
+/* Klingender Grundton der Pentatonik → notierter Grundton (noch ohne
+   Feinabstimmung der Schreibweise, die macht chooseScale) */
+function writtenRoot(concertKey, shift, inst){
+  const [dl, ds] = TRANSPOSE[inst];
+  let r = parseRoot(concertKey);
+  if (shift) r = shiftPitch(r, shift);        // Verschiebung zunächst rein klanglich
+  return transposeBy(r, dl, ds);
+}
+
+function realise(ex, inst){
+  const S = SCALES[ex.scale];
+  const [lo, hi] = rangeFor(inst);
+  const { root, deg } = chooseScale(writtenRoot(ex.key, ex.penShift || 0, inst), S);
+  const scale = buildScale(root, deg);
+  const sharp = sharpish(scale);
+  const res = { ex, S, root, deg, scale, sharp, amb:new Set(), inst, items:[], numbers:[] };
+
+  /* Akkord, über dem gespielt wird */
+  if (ex.over){
+    const chordRootConcert = transposeBy(parseRoot(ex.key), TRANSPOSE[inst][0], TRANSPOSE[inst][1]);
+    res.overSym = chordSym(chordRootConcert, ex.over.semis, ex.over.suffix, sharp);
+  }
+
+  if (ex.type === 'quiz'){
+    const idxs = [];
+    for (let i = 0; i < 5; i++) idxs.push(ex.dir === 'up' ? ex.start + i : ex.start - i);
+    const raw = idxs.map((idx, i) => ({ idx, group:0, n:noteAt(scale, idx), hidden:i > 0 }));
+    res.items = placeGroups(raw, lo, hi);
+    res.amb = ambiguousLetters(res.items.map(i => i.n));
+    res.numbers = [{ label:'Skala', toks:idxs.map(i => S.nums[((i % 5) + 5) % 5]) }];
+    const cr = transposeBy(parseRoot(ex.key), TRANSPOSE[inst][0], TRANSPOSE[inst][1]);
+    res.overSym = chordSym(cr, 0, S.chord, sharp);
+    return res;
+  }
+
+  if (ex.type === 'poly'){
+    const outPick = chooseScale(writtenRoot(ex.key, ex.out, inst), S);
+    const outRoot = outPick.root;
+    const outScale = buildScale(outRoot, outPick.deg);
+    const v = POLY_VARIANTS.find(p => p.id === ex.variant);
+    const moves3 = v.dir === 'desc' ? [-2,-1,2] : [2,1,-2];
+    const below = v.dir === 'desc';
+    const raw = [];
+    let cur = scale, curIdx = 2, isParent = true;
+    for (let g = 0; g < 8; g++){
+      const grp = [];
+      let idx = curIdx;
+      for (let k = 0; k < 4; k++){
+        grp.push({ idx, group:g, n:noteAt(cur, idx), parent:isParent });
+        if (k < 3) idx += moves3[k];
+      }
+      raw.push(...grp);
+      const refMidi = midi(v.ref === 'first' ? grp[0].n : grp[3].n);
+      const next = isParent ? outScale : scale;
+      curIdx = nearestIdx(next, refMidi, below);
+      cur = next; isParent = !isParent;
+    }
+    res.items = placeGroups(raw, lo, hi);
+    res.amb = ambiguousLetters(res.items.map(i => i.n));
+    res.outRoot = outRoot; res.outScale = outScale; res.polyVariant = v;
+    res.parentSym = noteName(root) + S.suffix;
+    res.outSym = noteName(outRoot) + S.suffix;
+    for (let g = 0; g < 8; g++){
+      const grp = res.items.filter(i => i.group === g);
+      res.numbers.push({
+        label: grp[0].parent ? res.parentSym : res.outSym,
+        toks: grp.map(i => S.nums[((i.idx % 5) + 5) % 5]),
+        alt: !grp[0].parent
+      });
+    }
+    return res;
+  }
+
+  /* line und start */
+  const F = FORMULAS[ex.formula];
+  const startIdx = ex.start || 0;
+  const raw = lineIdx(startIdx, F.moves, 5).map(i => ({ ...i, n:noteAt(scale, i.idx) }));
+  res.items = placeGroups(raw, lo, hi);
+  res.amb = ambiguousLetters(res.items.map(i => i.n));
+  if (ex.type === 'start') res.items.forEach((i, k) => i.hidden = k > 0);
+  res.formula = F;
+
+  /* Rhythmus auf die 20 Töne legen */
+  const rh = ex.rhythm ? RHYTHMS[ex.rhythm] : null;
+  if (rh && rh.cell){
+    let p = 0;
+    res.items.forEach(i => { i.dur = rh.cell[p % rh.cell.length]; p++; });
+  } else {
+    res.items.forEach(i => i.dur = 1);
+  }
+  res.rhythm = rh;
+
+  for (let g = 0; g < 5; g++){
+    const grp = res.items.filter(i => i.group === g);
+    res.numbers.push({ label:'Gruppe ' + (g + 1), toks:grp.map(i => S.nums[((i.idx % 5) + 5) % 5]) });
+  }
+  return res;
+}
+
+/* =========================================================
+   9 · NOTENSATZ (VexFlow)
+   Die Linien stehen wie im Buch ohne Taktstriche und ohne Taktangabe –
+   sie sind Material, kein Stück.
+   ========================================================= */
+const VEX_FALLBACK = 'https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js';
+let vexPromise = null;
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => res(); s.onerror = () => rej(new Error(src));
+    document.head.appendChild(s);
+  });
+}
+async function loadVex(){
+  if (typeof window.Vex !== 'undefined') return true;
+  try { await loadScript(VEX_FALLBACK); } catch (e) { /* offline */ }
+  return typeof window.Vex !== 'undefined';
+}
+function paperMessage(host, text, retry){
+  host.classList.add('empty');
+  host.innerHTML = '';
+  const p = document.createElement('div');
+  p.textContent = text;
+  host.append(p);
+  if (retry){
+    const b = document.createElement('button');
+    b.className = 'ghost';
+    b.style.cssText = 'margin-top:12px;border:1px solid #C7D0C9;color:#151E19;background:#fff';
+    b.textContent = 'Erneut versuchen';
+    b.addEventListener('click', () => { vexPromise = null; show(); });
+    host.append(b);
+  }
+}
+
+let renderToken = 0;
+async function renderNotation(res, host, revealed){
+  const token = ++renderToken;
+  paperMessage(host, 'Notensatz wird geladen …', false);
+  if (!vexPromise) vexPromise = loadVex();
+  const ok = await vexPromise;
+  if (token !== renderToken) return;
+  if (!ok){
+    paperMessage(host, 'Der Notensatz lässt sich gerade nicht laden. Die Zahlenansicht funktioniert auch ohne Netz.', true);
+    return;
+  }
+  host.classList.remove('empty');
+  host.innerHTML = '';
+
+  const VF = Vex.Flow;
+  const clef = res.inst === 'bass' ? 'bass' : 'treble';
+  const shown = res.items.filter(i => revealed || !i.hidden);
+  if (!shown.length){ paperMessage(host, 'Nichts anzuzeigen.', false); return; }
+
+  /* Der Memorizing Quiz steht im Buch in ganzen Noten; ein noch nicht
+     aufgedeckter Startton ebenso – er ist ein Ausgangspunkt, kein Rhythmus. */
+  const whole = res.ex.type === 'quiz' || (res.ex.type === 'start' && !revealed);
+  const durOf = it => whole ? 'w' : (it.dur === 2 ? 'q' : '8');
+  const wOf   = it => whole ? 78 : (it.dur === 2 ? 46 : 34);
+
+  /* Systemaufteilung: so viele Töne pro Zeile, wie lesbar hineinpassen.
+     Immer Vielfache von vier, damit keine Gruppe zerrissen wird. */
+  const avail = Math.max(host.clientWidth - 14, 280);
+  let per = shown.length;
+  if (!whole){
+    for (const c of [40, 32, 24, 20, 16, 12, 8, 4]){
+      if (c > shown.length) continue;
+      per = c;
+      const need = shown.slice(0, c).reduce((a, i) => a + wOf(i), 0) + 90;
+      if (need <= avail) break;
+    }
+  }
+
+  /* Zeilen gleichmässig füllen: lieber 16 + 16 als 24 + 8. */
+  const systems = Math.ceil(shown.length / per);
+  per = Math.ceil(shown.length / systems / 4) * 4 || shown.length;
+  const chunks = [];
+  for (let s = 0; s * per < shown.length; s++) chunks.push(shown.slice(s * per, (s + 1) * per));
+
+  const W = Math.max(Math.min(avail, 940), 280);
+  const H = chunks.length * 104 + 26;
+
+  const renderer = new VF.Renderer(host, VF.Renderer.Backends.SVG);
+  renderer.resize(W, H);
+  const ctx = renderer.getContext();
+  ctx.setFont('Public Sans', 12);
+
+  chunks.forEach((chunk, ci) => {
+    const stave = new VF.Stave(4, 26 + ci * 104, W - 10);
+    stave.setBegBarType(VF.Barline.type.NONE);
+    stave.setEndBarType(ci === chunks.length - 1 ? VF.Barline.type.END : VF.Barline.type.NONE);
+    stave.addClef(clef);      /* wie im Buch auf jeder Zeile */
+    stave.setContext(ctx).draw();
+
+    const notes = chunk.map(it => {
+      const n = new VF.StaveNote({ clef, keys:[vexKey(it.n)], duration: durOf(it) });
+      /* Vorzeichen an jedem veränderten Ton – ohne Taktstriche gäbe es
+         sonst keine verlässliche Gültigkeit. Kommt ein Buchstabe in der
+         Skala zweimal vor (B♭ und B♮), bekommt die unveränderte Stufe
+         zusätzlich ein Auflösungszeichen. */
+      if (it.n.a !== 0) n.addModifier(new VF.Accidental(it.n.a > 0 ? '#'.repeat(it.n.a) : 'b'.repeat(-it.n.a)), 0);
+      else if (res.amb && res.amb.has(it.n.l)) n.addModifier(new VF.Accidental('n'), 0);
+      if (it.sym){
+        n.addModifier(new VF.Annotation(it.sym)
+          .setFont('Archivo, system-ui, sans-serif', 13, 'bold')
+          .setVerticalJustification(VF.Annotation.VerticalJustify.TOP), 0);
+      }
+      return n;
+    });
+
+    /* Balken: bei gleichmässigen Achteln wie im Buch in Vierergruppen,
+       bei den Rhythmusmustern jeweils die Achtel bis zur Viertel. */
+    const beams = [];
+    if (!whole){
+      if (!res.rhythm || !res.rhythm.cell){
+        for (let s = 0; s < notes.length; s += 4){
+          const g = notes.slice(s, Math.min(s + 4, notes.length));
+          if (g.length > 1) beams.push(new VF.Beam(g));
+        }
+      } else {
+        let run = [];
+        chunk.forEach((it, k) => {
+          if (it.dur === 1) run.push(notes[k]);
+          else { if (run.length > 1) beams.push(new VF.Beam(run)); run = []; }
+        });
+        if (run.length > 1) beams.push(new VF.Beam(run));
+      }
+    }
+
+    const voice = new VF.Voice({ num_beats:4, beat_value:4 }).setStrict(false).addTickables(notes);
+    new VF.Formatter().joinVoices([voice]).format([voice], Math.max(W - 84, 120));
+    voice.draw(ctx, stave);
+    beams.forEach(b => b.setContext(ctx).draw());
+  });
+
+  const svg = host.querySelector('svg');
+  if (svg){
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.removeAttribute('width'); svg.removeAttribute('height');
+    svg.style.width = '100%'; svg.style.maxWidth = W + 'px'; svg.style.height = 'auto';
+  }
+}
+
+function renderNumbers(res, host, revealed){
+  host.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'numgrid';
+  const hide = (res.ex.type === 'quiz' || res.ex.type === 'start') && !revealed;
+  res.numbers.forEach((box, bi) => {
+    const el = document.createElement('div');
+    el.className = 'cellbox';
+    if (box.alt) el.style.borderTopColor = 'var(--other)';
+    const lab = document.createElement('div');
+    lab.className = box.alt ? 'sym' : 'lab';
+    lab.textContent = box.label;
+    if (box.alt) lab.style.color = 'var(--other)';
+    const tok = document.createElement('div');
+    tok.className = 'tok';
+    if (box.alt) tok.style.color = 'var(--other)';
+    /* Verdeckt: nur der allererste Ton bleibt stehen. */
+    tok.textContent = hide
+      ? box.toks.map((t, i) => (bi === 0 && i === 0 ? t : '·')).join(' ')
+      : box.toks.join(' · ');
+    el.append(lab, tok);
+    grid.append(el);
+  });
+  host.append(grid);
+  const hint = document.createElement('div');
+  hint.className = 'numhint';
+  hint.textContent = res.S.note;
+  host.append(hint);
+}
+
+/* =========================================================
+   10 · FORTSCHRITT
+   ========================================================= */
+const KEY_STORE = 'bergonzi-pentatonics-v1';
+let state = { settings:{ inst:'Bb', view:'notes' }, level:1, counter:0, prog:{}, lastId:null };
+let current = null, revealed = false;
+
+const store = (typeof window.storage !== 'undefined' && window.storage) ? {
+  async get(){ const r = await window.storage.get(KEY_STORE); return r ? r.value : null; },
+  async set(v){ await window.storage.set(KEY_STORE, v); }
+} : {
+  async get(){ try { return localStorage.getItem(KEY_STORE); } catch (e) { return null; } },
+  async set(v){ try { localStorage.setItem(KEY_STORE, v); } catch (e) {} }
+};
+async function load(){
+  try { const v = await store.get(); if (v) state = Object.assign(state, JSON.parse(v)); }
+  catch (e) { /* erster Start */ }
+}
+async function save(){ try { await store.set(JSON.stringify(state)); } catch (e) {} }
+
+const rec = id => state.prog[id] || { s:'n', due:-1, reps:0 };
+const isMastered = id => rec(id).s === 'm';
+function levelDone(n){ const p = byLevel(n); return p.length > 0 && p.every(e => isMastered(e.id)); }
+function levelCount(n){ const p = byLevel(n); return [p.filter(e => isMastered(e.id)).length, p.length]; }
+
+function pick(){
+  const pool = byLevel(state.level);
+  const open = pool.filter(e => !isMastered(e.id));
+  let cands = open.length ? open : pool;
+  const due = cands.filter(e => rec(e.id).due <= state.counter);
+  let list = due.length ? due : cands;
+  if (list.length > 1 && state.lastId){
+    const f = list.filter(e => e.id !== state.lastId);
+    if (f.length) list = f;
+  }
+  return list.slice().sort((a, b) => (rec(a.id).due - rec(b.id).due) || (hash(a.id) - hash(b.id)))[0];
+}
+async function answer(mastered){
+  if (!current) return;
+  const id = current.ex.id, r = rec(id);
+  state.prog[id] = { s: mastered ? 'm' : 'r', due: state.counter + (mastered ? 45 : 3), reps: r.reps + 1 };
+  state.lastId = id;
+  state.counter++;
+  if (levelDone(state.level) && state.level < LEVELS.length){
+    state.level++;
+    toast('Stufe ' + state.level + ' freigeschaltet: ' + LEVELS[state.level - 1].title);
+  }
+  await save();
+  show();
+}
+
+/* =========================================================
+   11 · OBERFLÄCHE
+   ========================================================= */
+const $ = s => document.querySelector(s);
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* Signatur der Seite: eine Kette aus vierzehn Fünfecken – fünf Ecken für
+   fünf Töne. Bewusst anders als die Notenlinie des 1235-Tools. */
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+}
+function drawSpine(){
+  const svg = $('#spine');
+  const col = { rule:cssVar('rule'), accent:cssVar('accent'), ok:cssVar('ok'),
+                muted:cssVar('muted'), ground:cssVar('ground') };
+  const N = LEVELS.length, x0 = 26, dx = (960 - 2 * x0) / (N - 1);
+  let s = `<line x1="${x0}" y1="26" x2="${x0 + (N - 1) * dx}" y2="26" stroke="${col.rule}" stroke-width="1"/>`;
+  LEVELS.forEach((L, i) => {
+    const x = x0 + i * dx, y = 26;
+    const [d, t] = levelCount(L.n);
+    const done = d === t, started = d > 0;
+    const fill = done ? col.ok : started ? col.accent : col.rule;
+    const cur = L.n === state.level;
+    const r = cur ? 11 : 7.5;
+    const pts = [];
+    for (let k = 0; k < 5; k++){
+      const ang = -Math.PI / 2 + k * 2 * Math.PI / 5;
+      pts.push((x + r * Math.cos(ang)).toFixed(1) + ',' + (y + r * Math.sin(ang)).toFixed(1));
+    }
+    if (cur) s += `<circle cx="${x}" cy="${y}" r="16.5" fill="none" stroke="${col.accent}" stroke-width="1"/>`;
+    s += `<polygon points="${pts.join(' ')}" fill="${fill}" stroke="${col.ground}" stroke-width="1.5"/>`;
+    s += `<text x="${x}" y="57" text-anchor="middle" font-family="Azeret Mono, monospace" font-size="10.5"
+            fill="${cur ? col.accent : col.muted}">${L.n}</text>`;
+    s += `<rect class="hit" data-lvl="${L.n}" x="${x - dx / 2}" y="2" width="${dx}" height="66" fill="transparent"><title>Stufe ${L.n}: ${L.title} (${d}/${t})</title></rect>`;
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('.hit').forEach(r => r.addEventListener('click', () => {
+    state.level = +r.dataset.lvl; state.lastId = null; save(); show();
+  }));
+}
+
+const chip = (t, cls) => `<span class="chip${cls ? ' ' + cls : ''}">${t}</span>`;
+
+function show(){
+  const ex = pick();
+  if (!ex) return;
+  revealed = false;
+  const inst = state.settings.inst;
+  const res = realise(ex, inst);
+  current = res;
+  const L = LEVELS[ex.level - 1];
+
+  $('#eyebrow').textContent = 'Stufe ' + L.n + ' · ' + L.head;
+  $('#title').textContent = L.title;
+  $('#lvl-name').textContent = '— aktuell: ' + L.title;
+
+  /* Chips */
+  const c = [];
+  const penName = noteName(res.root) + res.S.suffix;
+  if (ex.type === 'poly'){
+    c.push(chip(res.parentSym + ' → ' + res.outSym, 'key'));
+    c.push(chip((res.polyVariant.dir === 'desc' ? 'absteigend' : 'aufsteigend') + ' · ' + res.polyVariant.label));
+    const od = OUT_DEGREES.find(o => o.deg === ex.outDeg);
+    c.push(chip(ex.outDeg + '. Grad aussen · ' + od.common + ' gemeinsame Töne', 'alt'));
+    c.push(chip(res.polyVariant.ex));
+  } else {
+    c.push(chip(penName, 'key'));
+    if (res.overSym && ex.type !== 'quiz') c.push(chip('über ' + res.overSym));
+    if (ex.why) c.push(chip(ex.why, 'alt'));
+    if (res.formula) c.push(chip(res.formula.label + ' · ' + res.formula.arrows));
+    if (ex.type === 'quiz') c.push(chip(ex.dir === 'up' ? 'aufwärts' : 'abwärts'));
+    if (ex.type === 'quiz' || ex.type === 'start') c.push(chip('Startton: Stufe ' + res.S.nums[ex.start || 0]));
+    if (ex.order){
+      const o = START_ORDERS.find(x => x.id === ex.order);
+      c.push(chip('Reihe ' + o.label + ' · Ton ' + (ex.orderPos + 1)));
+    }
+    if (res.rhythm) c.push(chip(res.rhythm.label, 'alt'));
+    if (ex.cyc && ex.cyc.pos >= 0) c.push(chip(ex.cyc.name + ' · ' + (ex.cyc.pos + 1) + '/12'));
+  }
+  $('#chips').innerHTML = c.join('');
+
+  /* Anweisung */
+  const r = rec(ex.id);
+  let extra = '';
+  if (ex.type === 'poly'){
+    const od = OUT_DEGREES.find(o => o.deg === ex.outDeg);
+    extra += `<div class="sub">${res.parentSym} gegen ${res.outSym}: ${od.text}. Jede neue Gruppe beginnt auf ${res.polyVariant.how}.</div>`;
+  }
+  if (res.rhythm) extra += `<div class="sub">${res.rhythm.text}</div>`;
+  if (ex.type === 'quiz' || ex.type === 'start')
+    extra += `<div class="sub">Erst spielen, dann kontrollieren – die Lösung steht hinter dem Knopf.</div>`;
+  if (ex.type !== 'poly' && ex.type !== 'quiz'){
+    const fits = FITS[ex.scale].map(([s, suf]) => chordSym(res.root, s, suf, res.sharp));
+    extra += `<div class="sub">Passt über: ${[...new Set(fits)].join(' · ')}</div>`;
+  }
+  if (r.s === 'r') extra += `<div class="sub">Diese Übung hattest du schon – jetzt im Zieltempo.</div>`;
+  $('#instruction').innerHTML = L.text + extra;
+  $('#bookref').textContent = L.ref;
+
+  /* Skalenleiste */
+  const tones = res.scale.map((n, i) =>
+    `<span class="tone">${noteName(n)}<i>${res.S.nums[i]}</i></span>`).join('');
+  const outTones = res.outScale
+    ? `<span class="lab">gegen</span>` +
+      res.outScale.map((n, i) => `<span class="tone other">${noteName(n)}<i>${res.S.nums[i]}</i></span>`).join('')
+    : '';
+  $('#tones').innerHTML = tones;
+  $('#tones-out').innerHTML = outTones;
+
+  /* Notation / Zahlen */
+  const notesOn = state.settings.view === 'notes';
+  $('#paper').hidden = !notesOn;
+  $('#numbers').hidden = notesOn;
+  paint();
+
+  /* Lösungsknopf */
+  const needsReveal = ex.type === 'quiz' || ex.type === 'start';
+  $('#btn-reveal').hidden = !needsReveal;
+  $('#btn-reveal').textContent = 'Lösung zeigen';
+
+  const [d, t] = levelCount(L.n);
+  const totalM = EXERCISES.filter(e => isMastered(e.id)).length;
+  $('#stats').textContent =
+    `Stufe ${L.n}: ${d}/${t} sitzen · insgesamt ${totalM}/${EXERCISES.length} · ${state.counter} Durchgänge`;
+
+  drawSpine();
+}
+
+function paint(){
+  if (!current) return;
+  /* Akkordsymbole an die richtigen Töne hängen */
+  current.items.forEach(i => i.sym = undefined);
+  if (current.ex.type === 'poly'){
+    for (let g = 0; g < 8; g++){
+      const first = current.items.find(i => i.group === g);
+      if (first) first.sym = first.parent ? current.parentSym : current.outSym;
+    }
+  } else if (current.items[0]){
+    current.items[0].sym = current.overSym || (noteName(current.root) + current.S.suffix);
+  }
+  if (state.settings.view === 'notes') renderNotation(current, $('#paper'), revealed);
+  else renderNumbers(current, $('#numbers'), revealed);
+}
+
+/* Steuerung */
+$('#btn-got').addEventListener('click', () => answer(true));
+$('#btn-again').addEventListener('click', () => answer(false));
+$('#btn-reveal').addEventListener('click', () => {
+  revealed = !revealed;
+  $('#btn-reveal').textContent = revealed ? 'Lösung verbergen' : 'Lösung zeigen';
+  paint();
+});
+$('#sel-inst').addEventListener('change', e => {
+  state.settings.inst = e.target.value; save(); show();
+});
+function setView(v){
+  state.settings.view = v;
+  $('#v-notes').setAttribute('aria-pressed', v === 'notes');
+  $('#v-nums').setAttribute('aria-pressed', v === 'nums');
+  save(); show();
+}
+$('#v-notes').addEventListener('click', () => setView('notes'));
+$('#v-nums').addEventListener('click', () => setView('nums'));
+
+$('#btn-level-done').addEventListener('click', async () => {
+  const n = state.level, L = LEVELS[n - 1];
+  if (!confirm(`Alle Übungen der Stufe ${n} ("${L.title}") als "sitzt" markieren?`)) return;
+  byLevel(n).forEach(e => {
+    const r = rec(e.id);
+    state.prog[e.id] = { s:'m', due: state.counter + 200, reps: r.reps + 1 };
+  });
+  state.lastId = null;
+  if (n < LEVELS.length){ state.level = n + 1; toast('Stufe ' + state.level + ' freigeschaltet: ' + LEVELS[state.level - 1].title); }
+  else toast('Stufe ' + n + ' markiert');
+  await save(); show();
+});
+$('#btn-reset').addEventListener('click', async () => {
+  if (!confirm('Gesamten Fortschritt löschen?')) return;
+  state.prog = {}; state.counter = 0; state.level = 1; state.lastId = null;
+  await save(); show(); toast('Fortschritt zurückgesetzt');
+});
+
+let rt;
+window.addEventListener('resize', () => {
+  if (state.settings.view !== 'notes' || !current) return;
+  clearTimeout(rt);
+  rt = setTimeout(paint, 180);
+});
+
+(async function init(){
+  await load();
+  state.level = Math.min(state.level || 1, LEVELS.length);
+  $('#sel-inst').value = state.settings.inst;
+  $('#v-notes').setAttribute('aria-pressed', state.settings.view === 'notes');
+  $('#v-nums').setAttribute('aria-pressed', state.settings.view === 'nums');
+  show();
+})();
+</script>
