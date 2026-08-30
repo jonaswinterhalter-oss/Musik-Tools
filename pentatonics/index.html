@@ -127,28 +127,47 @@
     color:var(--muted);letter-spacing:.02em
   }
 
-  /* ---------- Die fünf Töne ---------- */
-  .scalebar{
-    display:flex;align-items:stretch;gap:16px;flex-wrap:wrap;
-    margin:20px 26px 0;padding:0
+  /* ---------- Kopfzeile rechts: Pentatonik und ihre fünf Töne ---------- */
+  .head-right{display:flex;flex-direction:column;gap:9px;align-items:flex-end;max-width:56ch}
+  .idrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end}
+  .idrow .tones{display:flex;gap:2px;flex-wrap:wrap}
+  .idrow .sep{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);align-self:center;padding:0 2px
   }
-  .scalebar .lab{
-    font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--muted);align-self:center
-  }
-  .scalebar .tones{display:flex;gap:2px;flex-wrap:wrap}
   .tone{
     display:flex;flex-direction:column-reverse;align-items:center;
-    font-family:var(--display);font-weight:600;font-size:17px;
+    font-family:var(--display);font-weight:600;font-size:15px;
     background:var(--panel-2);border-top:2px solid var(--rule);
-    padding:5px 12px 7px;min-width:48px;line-height:1.15
+    padding:4px 9px 6px;min-width:38px;line-height:1.15
   }
   .tone i{
-    font-style:normal;font-family:var(--mono);font-size:9.5px;font-weight:400;
+    font-style:normal;font-family:var(--mono);font-size:9px;font-weight:400;
     color:var(--muted);letter-spacing:.06em
   }
   .tone.other{border-top-color:var(--other);background:var(--other-wash);color:var(--other)}
   .tone.other i{color:var(--other)}
+
+  /* ---------- Anweisungen direkt über der Notenlinie ---------- */
+  .playbar{
+    display:flex;flex-wrap:wrap;margin:22px 26px 0;
+    border-top:2px solid var(--accent)
+  }
+  .playbar .pi{display:flex;flex-direction:column;gap:3px;padding:10px 20px 11px}
+  .playbar .pi:first-child{padding-left:0}
+  .playbar .pi + .pi{border-left:1px solid var(--rule-soft)}
+  .playbar .pi i{
+    font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted)
+  }
+  .playbar .pi b{
+    font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.01em;
+    line-height:1.2
+  }
+  .playbar .pi b em{
+    font-style:normal;font-family:var(--mono);font-weight:400;font-size:12.5px;
+    color:var(--muted);margin-left:9px
+  }
 
   /* ---------- Notenblatt: in jedem Theme echtes Papier ---------- */
   .paper{
@@ -218,9 +237,12 @@
     .card-head{padding:18px 16px 15px}
     .paper{margin:18px 16px}
     .instruction,.numbers,.actions{padding-left:16px;padding-right:16px}
-    .bookref,.scalebar{margin-left:16px;margin-right:16px}
-    .scalebar{gap:9px}
-    .tone{min-width:42px;padding:5px 9px 7px;font-size:15px}
+    .bookref,.playbar{margin-left:16px;margin-right:16px}
+    .head-right{align-items:flex-start;max-width:none}
+    .idrow{justify-content:flex-start}
+    .playbar .pi{padding:9px 13px 10px}
+    .playbar .pi b{font-size:14px}
+    .playbar .pi b em{display:block;margin-left:0;margin-top:1px}
   }
 </style>
 
@@ -262,17 +284,16 @@
         <p class="eyebrow" id="eyebrow">Stufe 1</p>
         <h2 id="title">…</h2>
       </div>
-      <div class="chips" id="chips"></div>
+      <div class="head-right">
+        <div class="idrow" id="idrow"></div>
+        <div class="chips" id="chips"></div>
+      </div>
     </div>
 
     <div class="instruction" id="instruction"></div>
     <p class="bookref" id="bookref"></p>
 
-    <div class="scalebar" id="scalebar">
-      <span class="lab">Skala</span>
-      <span class="tones" id="tones"></span>
-      <span class="tones" id="tones-out"></span>
-    </div>
+    <div class="playbar" id="playbar"></div>
 
     <div class="paper" id="paper"></div>
     <div class="numbers" id="numbers" hidden></div>
@@ -1263,37 +1284,69 @@ function show(){
   $('#title').textContent = L.title;
   $('#lvl-name').textContent = '— aktuell: ' + L.title;
 
-  /* Chips */
-  const c = [];
+  /* Kopfzeile rechts: welche Pentatonik, und aus welchen fünf Tönen sie besteht */
   const penName = noteName(res.root) + res.S.suffix;
-  if (ex.type === 'poly'){
-    c.push(chip(res.parentSym + ' → ' + res.outSym, 'key'));
-    c.push(chip((res.polyVariant.dir === 'desc' ? 'absteigend' : 'aufsteigend') + ' · ' + res.polyVariant.label));
+  const toneCells = (scale, other) => '<span class="tones">' + scale.map((n, i) =>
+      `<span class="tone${other ? ' other' : ''}">${noteName(n)}<i>${res.S.nums[i]}</i></span>`).join('') + '</span>';
+  const id = [];
+  id.push(chip(ex.type === 'poly' ? res.parentSym + ' → ' + res.outSym : penName, 'key'));
+  id.push(toneCells(res.scale, false));
+  if (res.outScale){
+    id.push('<span class="sep">gegen</span>');
+    id.push(toneCells(res.outScale, true));
+  }
+  $('#idrow').innerHTML = id.join('');
+
+  /* Chips: der harmonische Zusammenhang – worüber, warum, wo im Zyklus */
+  const c = [];
+  if (res.overSym && ex.type !== 'quiz' && ex.type !== 'poly') c.push(chip('über ' + res.overSym));
+  if (ex.why) c.push(chip(ex.why, 'alt'));
+  if (ex.cyc && ex.cyc.pos >= 0) c.push(chip(ex.cyc.name + ' · ' + (ex.cyc.pos + 1) + '/12'));
+  $('#chips').innerHTML = c.join('');
+  $('#chips').hidden = c.length === 0;
+
+  /* Anweisungszeile über der Notenlinie: was zu tun ist */
+  const play = [];
+  const item = (label, value, note) =>
+    play.push(`<span class="pi"><i>${label}</i><b>${value}${note ? `<em>${note}</em>` : ''}</b></span>`);
+
+  if (ex.type === 'quiz'){
+    item('Richtung', ex.dir === 'up' ? 'Aufwärts' : 'Abwärts');
+    item('Startton', 'Stufe ' + res.S.nums[ex.start || 0]);
+    item('Aufgabe', 'Die übrigen vier Töne');
+  } else if (ex.type === 'poly'){
     const od = OUT_DEGREES.find(o => o.deg === ex.outDeg);
-    c.push(chip(ex.outDeg + '. Grad aussen · ' + od.common + ' gemeinsame Töne', 'alt'));
-    c.push(chip(res.polyVariant.ex));
+    item('Richtung', res.polyVariant.dir === 'desc' ? 'Abwärts' : 'Aufwärts');
+    item('Anschluss', res.polyVariant.label);
+    item('Abstand', ex.outDeg + '. Grad aussen', od.common + ' gemeinsame Töne');
+    item('Buch', res.polyVariant.ex);
   } else {
-    c.push(chip(penName, 'key'));
-    if (res.overSym && ex.type !== 'quiz') c.push(chip('über ' + res.overSym));
-    if (ex.why) c.push(chip(ex.why, 'alt'));
-    if (res.formula) c.push(chip(res.formula.label + ' · ' + res.formula.arrows));
-    if (ex.type === 'quiz') c.push(chip(ex.dir === 'up' ? 'aufwärts' : 'abwärts'));
-    if (ex.type === 'quiz' || ex.type === 'start') c.push(chip('Startton: Stufe ' + res.S.nums[ex.start || 0]));
+    if (res.formula) item('Formel', res.formula.no + '', res.formula.arrows);
+    if (ex.type === 'start'){
+      item('Startton', 'Stufe ' + res.S.nums[ex.start || 0]);
+      item('Aufgabe', 'Linie vervollständigen');
+    }
     if (ex.order){
       const o = START_ORDERS.find(x => x.id === ex.order);
-      c.push(chip('Reihe ' + o.label + ' · Ton ' + (ex.orderPos + 1)));
+      item('Reihe', o.label, 'Ton ' + (ex.orderPos + 1));
     }
-    if (res.rhythm) c.push(chip(res.rhythm.label, 'alt'));
-    if (ex.cyc && ex.cyc.pos >= 0) c.push(chip(ex.cyc.name + ' · ' + (ex.cyc.pos + 1) + '/12'));
+    if (res.rhythm){
+      const [name, fig] = res.rhythm.label.split(' · ');
+      item('Rhythmus', name, fig || '');
+    }
+    /* Nur zeigen, wenn die Fundstelle genauer ist als die Buchzeile darüber */
+    if (res.formula && res.formula.famShort !== 'Kap. 2')
+      item('Buch', res.formula.famShort.replace('Kap. 7 · ', ''));
   }
-  $('#chips').innerHTML = c.join('');
+  $('#playbar').innerHTML = play.join('');
+  $('#playbar').hidden = play.length === 0;
 
   /* Anweisung */
   const r = rec(ex.id);
   let extra = '';
   if (ex.type === 'poly'){
     const od = OUT_DEGREES.find(o => o.deg === ex.outDeg);
-    extra += `<div class="sub">${res.parentSym} gegen ${res.outSym}: ${od.text}. Jede neue Gruppe beginnt auf ${res.polyVariant.how}.</div>`;
+    extra += `<div class="sub">${res.parentSym} gegen ${res.outSym}: ${od.text}.</div>`;
   }
   if (res.rhythm) extra += `<div class="sub">${res.rhythm.text}</div>`;
   if (ex.type === 'quiz' || ex.type === 'start')
@@ -1305,16 +1358,6 @@ function show(){
   if (r.s === 'r') extra += `<div class="sub">Diese Übung hattest du schon – jetzt im Zieltempo.</div>`;
   $('#instruction').innerHTML = L.text + extra;
   $('#bookref').textContent = L.ref;
-
-  /* Skalenleiste */
-  const tones = res.scale.map((n, i) =>
-    `<span class="tone">${noteName(n)}<i>${res.S.nums[i]}</i></span>`).join('');
-  const outTones = res.outScale
-    ? `<span class="lab">gegen</span>` +
-      res.outScale.map((n, i) => `<span class="tone other">${noteName(n)}<i>${res.S.nums[i]}</i></span>`).join('')
-    : '';
-  $('#tones').innerHTML = tones;
-  $('#tones-out').innerHTML = outTones;
 
   /* Notation / Zahlen */
   const notesOn = state.settings.view === 'notes';
