@@ -157,6 +157,34 @@
   @media (max-width:400px){
     .barbox .tok{font-size:11px;letter-spacing:-.01em}
   }
+
+  /* ---------- Fortschritt mitnehmen ---------- */
+  :root{--xfer-ok:var(--muted);--xfer-warn:var(--brass)}
+  .xfer{
+    margin-top:18px;padding:18px 20px 20px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px
+  }
+  .xfer-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .xfer h3{font-family:var(--display);font-weight:600;font-size:17px;margin:0;letter-spacing:-.015em}
+  .xfer-hint{font-size:13.5px;color:var(--muted);margin:8px 0 0;max-width:72ch}
+  .xfer textarea{
+    width:100%;margin-top:13px;min-height:92px;resize:vertical;display:block;
+    font-family:var(--mono);font-size:11px;line-height:1.55;
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:10px
+  }
+  .xfer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .xfer-actions button,.xfer-file{
+    font-family:var(--body);font-size:13px;cursor:pointer;line-height:1.2;
+    border:1px solid var(--line);border-radius:10px;padding:9px 15px;
+    background:var(--panel-2);color:var(--text);display:inline-block
+  }
+  .xfer-actions button.primary{
+    background:var(--brass);color:#20180a;border-color:var(--brass);font-weight:600
+  }
+  .xfer-file:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  .xfer-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .xfer-msg{font-family:var(--mono);font-size:11.5px;margin:11px 0 0;min-height:1.2em;line-height:1.5}
 </style>
 
 <div class="wrap">
@@ -212,10 +240,24 @@
   <footer>
     <div class="stats" id="stats"></div>
     <div class="footer-btns">
+      <button class="ghost" id="btn-export">Fortschritt sichern</button>
+      <button class="ghost" id="btn-import">Fortschritt laden</button>
       <button class="ghost" id="btn-level-done">Diese Stufe komplett markieren</button>
       <button class="ghost" id="btn-reset">Fortschritt zurücksetzen</button>
     </div>
   </footer>
+
+<section class="xfer" id="xfer" hidden>
+  <div class="xfer-head">
+    <h3 id="xfer-title">Fortschritt sichern</h3>
+    <button class="ghost" id="xfer-close">Schliessen</button>
+  </div>
+  <p class="xfer-hint" id="xfer-hint"></p>
+  <textarea id="xfer-text" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+  <div class="xfer-actions" id="xfer-actions"></div>
+  <p class="xfer-msg" id="xfer-msg"></p>
+</section>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1050,4 +1092,195 @@ window.addEventListener('resize', () => {
   $('#v-nums').setAttribute('aria-pressed', state.settings.view === 'nums');
   show();
 })();
+
+/* =========================================================
+   FORTSCHRITT MITNEHMEN
+   Der Fortschritt liegt im Browser und hängt an der Adresse der Seite.
+   Wer das Gerät wechselt oder den Browser-Speicher leert, nimmt ihn als
+   Textcode oder als Datei mit. Beides ist derselbe Inhalt – der Code
+   funktioniert auch dort, wo der Browser keine Downloads zulässt.
+   ========================================================= */
+const XFER_APP  = 'bergonzi-1235';
+const XFER_FILE = 'melodic-structures';
+const XFER_RANK = { n:0, r:1, m:2 };
+
+function packProgress(){
+  const p = {};
+  for (const id in state.prog){
+    const r = state.prog[id];
+    p[id] = [XFER_RANK[r.s] || 0, r.due | 0, r.reps | 0];
+  }
+  return JSON.stringify({
+    app: XFER_APP, v: 1,
+    saved: new Date().toISOString().slice(0, 10),
+    level: state.level, counter: state.counter,
+    inst: state.settings.inst, prog: p
+  });
+}
+function parseProgress(txt){
+  let d;
+  try { d = JSON.parse((txt || '').trim()); }
+  catch (e){ throw new Error('Das ist kein gültiger Code. Bitte den gesamten Text einfügen.'); }
+  if (!d || d.app !== XFER_APP) throw new Error('Dieser Code stammt aus einem anderen Übetool.');
+  if (!d.prog || typeof d.prog !== 'object') throw new Error('Im Code stehen keine Fortschrittsdaten.');
+  return d;
+}
+/* Zusammenführen: pro Übung gewinnt der weitere Stand, damit kein
+   Fortschritt verlorengeht, wenn auf zwei Geräten geübt wurde. */
+function applyProgress(d, replace){
+  const S = ['n', 'r', 'm'];
+  if (replace){ state.prog = {}; state.counter = 0; state.level = 1; }
+  let changed = 0, kept = 0;
+  for (const id in d.prog){
+    const v = d.prog[id];
+    if (!Array.isArray(v)) continue;
+    const inc = { s: S[v[0]] || 'n', due: +v[1] || 0, reps: +v[2] || 0 };
+    const cur = state.prog[id];
+    if (!cur){ state.prog[id] = inc; changed++; continue; }
+    const ri = XFER_RANK[inc.s], rc = XFER_RANK[cur.s];
+    if (ri > rc || inc.reps > cur.reps){
+      state.prog[id] = { s: ri >= rc ? inc.s : cur.s,
+                         due: Math.max(inc.due, cur.due),
+                         reps: Math.max(inc.reps, cur.reps) };
+      changed++;
+    } else kept++;
+  }
+  state.level = Math.min(Math.max(state.level || 1, d.level || 1), LEVELS.length);
+  state.counter = Math.max(state.counter || 0, d.counter || 0);
+  if (d.inst && TRANSPOSE[d.inst]) state.settings.inst = d.inst;
+  state.lastId = null;
+  return { changed, kept };
+}
+
+/* ---------- Oberfläche ---------- */
+function xferMsg(text, bad){
+  const m = $('#xfer-msg');
+  m.textContent = text || '';
+  m.style.color = bad ? 'var(--xfer-warn)' : 'var(--xfer-ok)';
+}
+function xferButton(label, primary, onClick){
+  const b = document.createElement('button');
+  b.textContent = label;
+  if (primary) b.className = 'primary';
+  b.addEventListener('click', onClick);
+  return b;
+}
+function xferFilePicker(){
+  const lab = document.createElement('label');
+  lab.className = 'xfer-file';
+  lab.textContent = 'Datei wählen';
+  lab.tabIndex = 0;
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.json,.txt,application/json,text/plain';
+  inp.addEventListener('change', () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { $('#xfer-text').value = String(rd.result || ''); xferMsg('Datei gelesen: ' + f.name + ' – jetzt zusammenführen oder ersetzen.'); };
+    rd.onerror = () => xferMsg('Die Datei liess sich nicht lesen.', true);
+    rd.readAsText(f);
+  });
+  lab.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
+  lab.append(inp);
+  return lab;
+}
+async function xferCopy(){
+  const ta = $('#xfer-text');
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    xferMsg('Code kopiert. Auf dem anderen Gerät unter „Fortschritt laden" einfügen.');
+  } catch (e){
+    ta.focus(); ta.select();
+    xferMsg('Der Code ist markiert – bitte mit ⌘C bzw. Strg+C kopieren.', true);
+  }
+}
+/* Datei speichern geht auf zwei Wegen: als normale Webseite über einen
+   Blob-Download, in der Claude-Vorschau über deren Speichern-Dialog.
+   false = gewöhnliche Seite, null = Vorschau ohne Erlaubnis (dann gibt
+   es den Knopf nicht), sonst die Schnittstelle der Vorschau. */
+let xferSaver = false;
+if (typeof window.claude !== 'undefined' && window.claude && typeof window.claude.use === 'function'){
+  xferSaver = undefined;
+  Promise.resolve(window.claude.use('downloads'))
+    .then(d => { xferSaver = d || null; })
+    .catch(() => { xferSaver = null; });
+}
+function xferFileName(){
+  return XFER_FILE + '-fortschritt-' + new Date().toISOString().slice(0, 10) + '.json';
+}
+async function xferDownload(){
+  const text = $('#xfer-text').value, name = xferFileName();
+  if (xferSaver === null){
+    xferMsg('Hier lassen sich keine Dateien speichern – bitte den Code kopieren.', true);
+    return;
+  }
+  if (xferSaver){
+    try {
+      await xferSaver.save({ filename:name, data:text });
+      xferMsg('Datei gespeichert: ' + name);
+    } catch (e){
+      xferMsg(e && e.code === 'declined'
+        ? 'Speichern abgebrochen.'
+        : 'Speichern nicht möglich – bitte den Code kopieren.', true);
+    }
+    return;
+  }
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type:'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    xferMsg('Datei gespeichert: ' + name);
+  } catch (e){
+    xferMsg('Download nicht möglich – bitte stattdessen den Code kopieren.', true);
+  }
+}
+function xferImport(replace){
+  let d;
+  try { d = parseProgress($('#xfer-text').value); }
+  catch (e){ xferMsg(e.message, true); return; }
+  const n = Object.keys(d.prog).length;
+  if (replace && !confirm(`Den gespeicherten Fortschritt hier löschen und durch die ${n} Einträge aus dem Code ersetzen?`)) return;
+  const { changed, kept } = applyProgress(d, replace);
+  save();
+  show();
+  xferMsg(replace
+    ? `${changed} Einträge übernommen (Stand vom ${d.saved || '?'}).`
+    : `${changed} Einträge übernommen, ${kept} hier bereits weiter (Stand vom ${d.saved || '?'}).`);
+  toast('Fortschritt übernommen');
+}
+function openXfer(mode){
+  const el = $('#xfer'), ta = $('#xfer-text'), act = $('#xfer-actions');
+  el.hidden = false;
+  act.innerHTML = '';
+  xferMsg('');
+  if (mode === 'out'){
+    $('#xfer-title').textContent = 'Fortschritt sichern';
+    $('#xfer-hint').textContent =
+      `${EXERCISES.filter(e => isMastered(e.id)).length} von ${EXERCISES.length} Übungen sitzen. Kopiere den Code oder speichere ihn als Datei – auf dem anderen Gerät unter „Fortschritt laden" wieder einsetzen.`;
+    ta.value = packProgress();
+    ta.readOnly = true;
+    act.append(xferButton('Code kopieren', true, xferCopy));
+    if (xferSaver !== null) act.append(xferButton('Als Datei speichern', false, xferDownload));
+  } else {
+    $('#xfer-title').textContent = 'Fortschritt laden';
+    $('#xfer-hint').textContent =
+      'Code einfügen oder Datei wählen. „Zusammenführen" behält, was hier schon weiter ist; „Ersetzen" verwirft den Stand auf diesem Gerät.';
+    ta.value = '';
+    ta.readOnly = false;
+    act.append(xferFilePicker(),
+               xferButton('Zusammenführen', true, () => xferImport(false)),
+               xferButton('Ersetzen', false, () => xferImport(true)));
+    ta.focus();
+  }
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+$('#btn-export').addEventListener('click', () => openXfer('out'));
+$('#btn-import').addEventListener('click', () => openXfer('in'));
+$('#xfer-close').addEventListener('click', () => { $('#xfer').hidden = true; });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#xfer').hidden) $('#xfer').hidden = true;
+});
 </script>
