@@ -319,7 +319,11 @@
   </div>
 
   <footer>
-    Fortschritt wird lokal auf diesem Gerät gespeichert. <a class="reset-link" id="resetLink">Fortschritt zurücksetzen</a>
+    Fortschritt wird lokal auf diesem Gerät gespeichert.
+    <a class="reset-link" id="exportLink">Fortschritt exportieren</a> ·
+    <a class="reset-link" id="importLink">Fortschritt importieren</a> ·
+    <a class="reset-link" id="resetLink">Fortschritt zurücksetzen</a>
+    <input type="file" id="importFile" accept="application/json" style="display:none">
   </footer>
 
 </div>
@@ -525,6 +529,52 @@ document.getElementById('resetLink').addEventListener('click', async () => {
     updateProgressSummary();
     refreshTempoUI();
   }
+});
+
+document.getElementById('exportLink').addEventListener('click', () => {
+  const data = JSON.stringify({ type: 'mcneil-fingerings-progress', exportedAt: new Date().toISOString(), progress }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'mcneil-fortschritt-' + dateStr + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importLink').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', (ev) => {
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try{
+      const parsed = JSON.parse(e.target.result);
+      const incoming = parsed.progress || parsed; // accept raw progress object too
+      if(typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('ungültiges Format');
+      const count = Object.keys(incoming).length;
+      if(!confirm('Fortschritt aus Datei importieren (' + count + ' Übungen)? Der aktuelle Fortschritt auf diesem Gerät wird überschrieben.')){
+        ev.target.value = '';
+        return;
+      }
+      progress = incoming;
+      await saveProgress();
+      updateAllTiles();
+      updateProgressSummary();
+      refreshTempoUI();
+      alert('Fortschritt importiert.');
+    }catch(err){
+      alert('Diese Datei konnte nicht gelesen werden. Bitte eine zuvor exportierte Fortschritts-Datei auswählen.');
+    }
+    ev.target.value = '';
+  };
+  reader.readAsText(file);
 });
 
 (async function init(){
