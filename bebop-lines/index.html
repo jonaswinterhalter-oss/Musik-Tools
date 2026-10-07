@@ -72,7 +72,7 @@ button{cursor:pointer}
 .lv.next .code{color:var(--accent)}
 .meter{width:46px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:flex}
 .meter i{display:block;height:100%}
-.meter .m-ok{background:var(--ok)} .meter .m-again{background:var(--gold)}
+.meter .m-ok{background:var(--ok)} .meter .m-prog{background:var(--ok);opacity:.45} .meter .m-again{background:var(--gold)}
 .mobile-nav{display:none}
 @media (max-width:860px){.mobile-nav{display:flex;gap:8px;align-items:center}.mobile-nav select{flex:1;min-width:0}}
 
@@ -87,6 +87,16 @@ button{cursor:pointer}
 .key{min-width:44px;height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:600 13px var(--mono);color:var(--ink);display:inline-flex;align-items:center;justify-content:center}
 .key.s1{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .key.s2{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.key.s3{border-color:var(--ok);color:var(--ok);box-shadow:inset 0 -4px 0 var(--ok)}
+.tsel{display:inline-flex;align-items:center;gap:6px}.tsel span{font-size:12px;color:var(--muted)}
+.tempo{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px 20px 0}
+.tempo-info{font-size:13px;color:var(--muted)}.tempo-info b{color:var(--ink);font-weight:600;margin-right:4px}
+.ladder{display:flex;flex-wrap:wrap;align-items:flex-start;gap:3px}
+.rung{font:500 11px/1 var(--mono);font-variant-numeric:tabular-nums;padding:5px 4px;min-width:30px;text-align:center;border:1px solid var(--line);border-radius:3px;color:var(--muted);cursor:pointer;user-select:none}
+.rung.hit{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.rung.cur{border-color:var(--ink);color:var(--ink);font-weight:700}
+.rung.hit.cur{color:var(--bg)}
+.rung.now{outline:2px solid var(--accent);outline-offset:1px}
 .key[aria-current="true"]{outline:3px solid var(--accent);outline-offset:1px}
 .sheet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 20px;border-top:1px solid var(--line);background:var(--panel2)}
 .keyname{font:400 26px/1 var(--display);letter-spacing:.02em}
@@ -171,7 +181,7 @@ dialog::backdrop{background:rgba(10,8,6,.55)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (max-width:520px){
   body{padding-bottom:calc(128px + env(safe-area-inset-bottom,0px))}
-  .card-head,.keystrip,.formula,.rate,.legend,.gen-controls,.note{padding-left:14px;padding-right:14px}
+  .card-head,.keystrip,.formula,.rate,.legend,.gen-controls,.note,.tempo{padding-left:14px;padding-right:14px}
   .sheet-head{padding:10px 14px}
   .sheet{padding:8px 4px 2px}
   .key{min-width:40px}
@@ -213,6 +223,9 @@ dialog::backdrop{background:rgba(10,8,6,.55)}
     </label>
     <span class="field">Ansicht
       <span class="seg" role="group" aria-label="Ansicht"><button id="v-notes" aria-pressed="true">Noten</button><button id="v-nums" aria-pressed="false">Zahlen</button></span>
+    </span>
+    <span class="field">Tempo
+      <span class="tsel"><select id="sel-tstart" aria-label="Starttempo"></select><span>bis</span><select id="sel-tgoal" aria-label="Zieltempo"></select></span>
     </span>
     <label class="chk"><input type="checkbox" id="chk-colors" checked> Bausteine farbig</label>
   </div>
@@ -529,8 +542,22 @@ function dotted(e) { return !e.tup && (e.dur === 18 || e.dur === 36); }
 
 /* line: realisierte Linie; opts: {width, colors:[], groups:[{from,to,label,color}], chordText:(ci)=>string, clef} */
 function renderLine(el, line, opts) {
-  const VF = G.Vex.Flow;
   opts = opts || {};
+  let r = drawLine(el, line, opts, 76, 62);
+  if (r.extraTop > 0 || r.extraBot > 0) r = drawLine(el, line, opts, 76 + Math.ceil(r.extraTop), 62 + Math.ceil(r.extraBot));
+  return r;
+}
+/* Halsrichtung einer Balkengruppe: die vom Mittellinie am weitesten entfernte Note entscheidet */
+function beamDir(ns) {
+  let hi = -99, lo = 99, sum = 0;
+  ns.forEach(n => n.keyProps.forEach(kp => { hi = Math.max(hi, kp.line); lo = Math.min(lo, kp.line); sum += kp.line - 3; }));
+  const up = hi - 3, down = 3 - lo;
+  if (up > down) return -1;
+  if (down > up) return 1;
+  return sum > 0 ? -1 : sum < 0 ? 1 : -1;
+}
+function drawLine(el, line, opts, TOP, BOTTOM) {
+  const VF = G.Vex.Flow;
   el.innerHTML = '';
   const W = Math.max(280, opts.width || el.clientWidth || 800);
   const clef = line.clef || 'treble';
@@ -555,7 +582,7 @@ function renderLine(el, line, opts) {
     cur.push(br); used += br.need;
   });
   if (cur.length) rows.push(cur);
-  const TOP = 76, STAFF = 40, BOTTOM = 62;
+  const STAFF = 40;
   const rowH = TOP + STAFF + BOTTOM;
   const H = rows.length * rowH + 6;
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
@@ -602,15 +629,13 @@ function renderLine(el, line, opts) {
         const n = noteObjs[k], c = opts.colors[k];
         if (c && n.getModifiers) n.getModifiers().forEach(m => { if (m.getCategory && m.getCategory() === 'Accidental') m.setStyle({ fillStyle: c, strokeStyle: c }); });
       });
-      // Triolen
-      const tuplets = [];
-      const byTup = {};
-      br.idx.forEach(k => { const e = line.ev[k]; if (e.tupId) (byTup[e.tupId] = byTup[e.tupId] || []).push(noteObjs[k]); });
-      Object.values(byTup).forEach(ns => tuplets.push(new VF.Tuplet(ns, { num_notes: 3, notes_occupied: 2, bracketed: false, ratioed: false })));
       // Balken: pro halbem Takt
       const beams = [];
       let grp = [], half = -1;
-      const flush = () => { if (grp.length > 1) beams.push(new VF.Beam(grp)); grp = []; };
+      const flush = () => {
+        if (grp.length > 1) { const d = beamDir(grp); grp.forEach(n => n.setStemDirection(d)); const bm = new VF.Beam(grp, false); Object.assign(bm.render_options, { max_slope: 0.12, min_slope: -0.12, slope_cost: 200 }); beams.push(bm); }
+        grp = [];
+      };
       let lastT = null;
       br.idx.forEach(k => {
         const e = line.ev[k];
@@ -621,6 +646,14 @@ function renderLine(el, line, opts) {
         if (!e.rest && e.dur < 12) grp.push(noteObjs[k]); else flush();
       });
       flush();
+      // Triolen: Ziffer auf der Balkenseite
+      const tuplets = [];
+      const byTup = {};
+      br.idx.forEach(k => { const e = line.ev[k]; if (e.tupId) (byTup[e.tupId] = byTup[e.tupId] || []).push(noteObjs[k]); });
+      Object.values(byTup).forEach(ns => {
+        const down = ns.every(n => n.getStemDirection() === -1);
+        tuplets.push(new VF.Tuplet(ns, { num_notes: 3, notes_occupied: 2, bracketed: false, ratioed: false, location: down ? VF.Tuplet.LOCATION_BOTTOM : VF.Tuplet.LOCATION_TOP }));
+      });
       const fmtW = w - (bi === 0 ? CLEFW + 18 : 22);
       new VF.Formatter().joinVoices([voice]).format([voice], Math.max(40, fmtW));
       voice.draw(ctx, st);
@@ -644,7 +677,23 @@ function renderLine(el, line, opts) {
   };
   const noteX = k => noteObjs[k].getAbsoluteX();
   const noteTopY = k => { const n = noteObjs[k]; const ys = n.getYs(); let y = Math.min(...ys); if (n.getStemDirection && n.getStemDirection() === 1 && !line.ev[k].rest && line.ev[k].dur < 48) y = Math.min(y, n.getStemExtents ? n.getStemExtents().topY : y); return y; };
-  const noteBotY = k => { const n = noteObjs[k]; const ys = n.getYs(); let y = Math.max(...ys); if (n.getStemDirection && n.getStemDirection() === -1 && !line.ev[k].rest && line.ev[k].dur < 48) y = Math.max(y, n.getStemExtents ? n.getStemExtents().baseY : y); return y; };
+  const noteBotY = k => { const n = noteObjs[k]; const ys = n.getYs(); let y = Math.max(...ys); if (n.getStemDirection && n.getStemDirection() === -1 && !line.ev[k].rest && line.ev[k].dur < 48) y = Math.max(y, n.getStemExtents().topY); return y; };
+  const tupTop = k => line.ev[k].tup && !line.ev[k].rest && noteObjs[k].getStemDirection() === 1;
+  const tupBot = k => line.ev[k].tup && !line.ev[k].rest && noteObjs[k].getStemDirection() === -1;
+  // Platzbedarf je System (über Linie 0 / unter Linie 4)
+  const rowInfo = new Map();
+  line.ev.forEach((e, k) => {
+    if (!noteObjs[k]) return;
+    const st = staveOf[k], y = st.getY(), l0 = st.getYForLine(0), l4 = st.getYForLine(4);
+    const r = rowInfo.get(y) || { bot: 0, top: 0 };
+    if (!e.rest) {
+      r.bot = Math.max(r.bot, noteBotY(k) + (tupBot(k) ? 16 : 0) - l4);
+      r.top = Math.max(r.top, l0 - noteTopY(k) + (tupTop(k) ? 16 : 0));
+    }
+    rowInfo.set(y, r);
+  });
+  let extraTop = 0, extraBot = 0;
+  const rowStart = st => st.getY() - TOP + 30;
   // Akkordsymbole
   line.chords.forEach((ch, ci) => {
     let k = line.ev.findIndex(e => e.t >= ch.t);
@@ -654,32 +703,36 @@ function renderLine(el, line, opts) {
     for (let j = k; j < Math.min(k + 4, line.ev.length); j++) if (staveOf[j] === st && !line.ev[j].rest) top = Math.min(top, noteTopY(j) - 6);
     const label = opts.chordText ? opts.chordText(ch, ci) : BB.chordName(ch.c, true);
     let cy = Math.min(st.getYForLine(0) - 30, top - 22);
-    for (let j = k; j < Math.min(k + 6, line.ev.length); j++) if (staveOf[j] === st && line.ev[j].tup) { cy = Math.min(cy, noteTopY(j) - 30); }
-    const t = txt(noteX(k) - 4, Math.max(8 + (st.getY() - 40), cy), '', 'vf-chord');
+    for (let j = k; j < Math.min(k + 6, line.ev.length); j++) if (staveOf[j] === st && tupTop(j)) cy = Math.min(cy, noteTopY(j) - 30);
+    extraTop = Math.max(extraTop, rowStart(st) + 18 - cy);
+    const t = txt(noteX(k) - 4, cy, '', 'vf-chord');
     label.split('|').forEach((part, i) => {
       const ts = document.createElementNS(NS, 'tspan');
       ts.textContent = (i ? '  ' : '') + part; if (i) ts.setAttribute('class', 'vf-chord-alt');
       t.appendChild(ts);
     });
   });
+  rowInfo.forEach((r, y) => { extraTop = Math.max(extraTop, r.top + 8 - (TOP + 10)); });
+  // Unterkante: Stufenzahlen und Bausteine rücken unter tiefe Hälse/Triolenziffern
+  const shiftOf = st => Math.max(0, ((rowInfo.get(st.getY()) || { bot: 0 }).bot) - 17);
+  const room = BOTTOM - 10 + 6;
   // Gruppen (Bausteine) unter den Noten
   if (opts.groups) {
     opts.groups.forEach(g => {
       const ks = []; for (let k = g.from; k <= g.to; k++) if (noteObjs[k]) ks.push(k);
       if (!ks.length) return;
-      // pro System aufteilen
       const segs = [];
       ks.forEach(k => { const y = staveOf[k].getY(); const s = segs[segs.length - 1]; if (s && s.y === y) s.ks.push(k); else segs.push({ y, ks: [k], st: staveOf[k] }); });
       segs.forEach((s, si) => {
-        let bot = s.st.getYForLine(4) + 16;
-        s.ks.forEach(k => bot = Math.max(bot, noteBotY(k) + 12));
         const x1 = noteX(s.ks[0]) + 1, x2 = noteX(s.ks[s.ks.length - 1]) + 10;
         const ln = document.createElementNS(NS, 'path');
-        const yy = s.st.getYForLine(4) + 44;
+        const off = 44 + shiftOf(s.st);
+        const yy = s.st.getYForLine(4) + off;
         ln.setAttribute('d', `M${x1} ${yy - 5} V${yy} H${x2} V${yy - 5}`);
         ln.setAttribute('class', 'vf-grp'); ln.setAttribute('stroke', g.color);
         svg.appendChild(ln);
         if (si === 0 && g.label) { const t = txt(x1, yy + 13, g.label, 'vf-glabel'); t.setAttribute('fill', g.color); }
+        extraBot = Math.max(extraBot, off + 16 - room);
       });
     });
   }
@@ -688,11 +741,14 @@ function renderLine(el, line, opts) {
     line.ev.forEach((e, k) => {
       if (e.rest || !noteObjs[k] || !opts.degrees[k]) return;
       const st = staveOf[k];
-      const yy = st.getYForLine(4) + (opts.groups ? 30 : 34);
-      txt(noteX(k) + 5, yy, opts.degrees[k], 'vf-deg', 'middle');
+      const off = (opts.groups ? 30 : 34) + shiftOf(st);
+      txt(noteX(k) + 5, st.getYForLine(4) + off, opts.degrees[k], 'vf-deg', 'middle');
+      extraBot = Math.max(extraBot, off + 4 - room);
     });
   }
-  return { svg, rows: rows.length };
+  rowInfo.forEach(r => { extraBot = Math.max(extraBot, r.bot + 4 - room); });
+  const notes = noteObjs;
+  return { svg, rows: rows.length, extraTop, extraBot, notes, staveOf };
 }
 
 G.BBR = { renderLine };
@@ -1308,7 +1364,7 @@ const PC_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 
 /* ---------- Speicher ---------- */
 const STORE = 'jacobson-bebop-v1';
 const DEFAULT = { v: 1, mode: 'book', level: 'D1', instr: 'C', cycle: 'quart', start: 0, view: 'notes', colors: true, order: 'line',
-  bpm: 100, m24: true, oct: {}, prog: {}, mem: {}, counter: 0, memCounter: 0,
+  bpm: 100, m24: true, tStart: 80, tGoal: 200, tempoFor: null, oct: {}, prog: {}, mem: {}, counter: 0, memCounter: 0,
   gen: { prog: 'dom2', allow: { start: true, arp: true, arpInv: true, encl: true, emb: true }, keyMode: 'cycle', keyIdx: 0, reveal: false } };
 let S = JSON.parse(JSON.stringify(DEFAULT));
 try { const raw = localStorage.getItem(STORE); if (raw) { const x = JSON.parse(raw); S = Object.assign(S, x); S.gen = Object.assign({}, DEFAULT.gen, x.gen || {}); S.gen.allow = Object.assign({}, DEFAULT.gen.allow, (x.gen || {}).allow || {}); } } catch (e) {}
@@ -1337,32 +1393,51 @@ function itemsOf(lvl) {
 const itemId = it => it.line.id + '@' + (it.line.keys === 'orig' ? 'o' : it.key);
 const store = () => S.mode === 'mem' ? S.mem : S.prog;
 const counterKey = () => S.mode === 'mem' ? 'memCounter' : 'counter';
-const statusOf = it => (store()[itemId(it)] || [0, 0, 0])[0];
+/* Datensatz je Übung: [Status 0 neu · 1 nochmal · 2 sitzt, fällig ab Zähler, Wiederholungen, bestes Tempo, nächstes Tempo] */
+const T_STEP = 10;
+const recOf = it => store()[itemId(it)] || [0, 0, 0, 0, 0];
+// 0 neu · 1 nochmal · 2 sitzt im Zieltempo · 3 sitzt, Tempo steigt noch
+const stateOfRec = r => !r || !r[0] ? 0 : r[0] === 1 ? 1 : (r[3] || 0) >= S.tGoal ? 2 : 3;
+const statusOf = it => stateOfRec(store()[itemId(it)]);
+function suggestedTempo(it) {
+  const r = store()[itemId(it)];
+  let t = S.tStart;
+  if (r && r[4]) t = r[4];
+  else if (r && r[3]) t = r[3] + T_STEP;
+  return Math.max(S.tStart, Math.min(S.tGoal, t));
+}
 function levelStats(lvl, which) {
   const st = which || store(); const items = itemsOf(lvl);
-  let ok = 0, again = 0; items.forEach(it => { const s = (st[itemId(it)] || [0])[0]; if (s === 2) ok++; else if (s === 1) again++; });
-  return { ok, again, total: items.length };
+  let ok = 0, again = 0, prog = 0, sum = 0;
+  items.forEach(it => { const r = st[itemId(it)]; const s = stateOfRec(r); if (s === 2) ok++; else if (s === 1) again++; else if (s === 3) { prog++; sum += r[3] || 0; } });
+  return { ok, again, prog, avg: prog ? Math.round(sum / prog / 5) * 5 : 0, total: items.length };
 }
 function recommendedLevel() {
-  for (const L of LEVELS) { const s = levelStats(L.id); if (s.ok < s.total) return L.id; }
+  for (const L of LEVELS) { const s = levelStats(L.id); if (s.ok + s.prog < s.total) return L.id; }
   return LEVELS[LEVELS.length - 1].id;
 }
 // Nächste fällige Übung in einer Stufe
 function nextItem(lvl) {
   const items = itemsOf(lvl), st = store(), c = S[counterKey()];
-  const due = items.filter(it => { const r = st[itemId(it)]; return r && r[0] === 1 && r[1] <= c; }).sort((a, b) => st[itemId(a)][1] - st[itemId(b)][1]);
+  const open = items.filter(it => { const s = stateOfRec(st[itemId(it)]); return s === 1 || s === 3; }).sort((a, b) => st[itemId(a)][1] - st[itemId(b)][1]);
+  const due = open.filter(it => st[itemId(it)][1] <= c);
   if (due.length) return due[0];
-  const fresh = items.find(it => !st[itemId(it)] || st[itemId(it)][0] === 0);
+  const fresh = items.find(it => stateOfRec(st[itemId(it)]) === 0);
   if (fresh) return fresh;
-  const again = items.filter(it => (st[itemId(it)] || [0])[0] === 1).sort((a, b) => st[itemId(a)][1] - st[itemId(b)][1]);
-  return again[0] || null;
+  return open[0] || null;
 }
 function rate(it, ok) {
   const st = store(), id = itemId(it), ck = counterKey();
-  const r = st[id] || [0, 0, 0];
-  S[ck] = (S[ck] || 0) + 1;
-  if (ok) st[id] = [2, S[ck], r[2] + 1];
-  else st[id] = [1, S[ck] + Math.min(3 + r[2] * 2, 9), r[2] + 1];
+  const r = st[id] || [0, 0, 0, 0, 0];
+  const c = S[ck] = (S[ck] || 0) + 1;
+  const T = S.bpm, best = r[3] || 0, reps = (r[2] || 0) + 1;
+  if (ok) {
+    const nb = Math.max(best, T);
+    st[id] = [2, c + Math.min(4 + 2 * reps, 16), reps, nb, Math.min(S.tGoal, Math.max(nb, T) + T_STEP)];
+  } else {
+    st[id] = [1, c + Math.min(3 + 2 * reps, 9), reps, best, Math.max(S.tStart, T - T_STEP)];
+  }
+  S.tempoFor = null;
   save();
 }
 
@@ -1480,10 +1555,10 @@ function renderSide() {
     const box = el('div', { class: 'part' }, el('h3', null, P.name + ' · ' + P.title, el('small', null, P.ref)));
     lvls.forEach(L => {
       const st = levelStats(L.id);
-      const w1 = st.total ? 100 * st.ok / st.total : 0, w2 = st.total ? 100 * st.again / st.total : 0;
+      const w1 = st.total ? 100 * st.ok / st.total : 0, w3 = st.total ? 100 * st.prog / st.total : 0, w2 = st.total ? 100 * st.again / st.total : 0;
       box.appendChild(el('button', { class: 'lv' + (L.id === rec ? ' next' : ''), 'aria-current': L.id === S.level ? 'true' : 'false', onclick: () => { S.level = L.id; S.cur = null; save(); render(); scrollStage(); } },
         el('span', { class: 'code' }, L.id), el('span', { class: 't' }, L.title),
-        el('span', { class: 'meter', title: st.ok + ' sitzt · ' + st.again + ' nochmal · ' + st.total + ' gesamt' }, el('i', { class: 'm-ok', style: 'width:' + w1 + '%' }), el('i', { class: 'm-again', style: 'width:' + w2 + '%' }))));
+        el('span', { class: 'meter', title: st.ok + ' im Zieltempo · ' + st.prog + ' unterwegs · ' + st.again + ' nochmal · ' + st.total + ' gesamt' }, el('i', { class: 'm-ok', style: 'width:' + w1 + '%' }), el('i', { class: 'm-prog', style: 'width:' + w3 + '%' }), el('i', { class: 'm-again', style: 'width:' + w2 + '%' }))));
     });
     side.appendChild(box);
   });
@@ -1522,10 +1597,10 @@ function renderBook() {
     el('h2', null, L.title),
     el('p', { class: 'info' }, L.info),
     S.mode === 'mem' ? el('p', { class: 'info' }, el('b', null, 'Gedächtnis-Modus: '), 'Die Vorlage steht in der Referenztonart. Übertrage sie selbst in die Zieltonart und deck die Noten erst danach auf.') : null,
-    L.id === rec && levelStats(L.id).ok === 0 ? el('span', { class: 'nextbadge' }, 'Empfohlener nächster Schritt') : null);
+    L.id === rec && (levelStats(L.id).ok + levelStats(L.id).prog) === 0 ? el('span', { class: 'nextbadge' }, 'Empfohlener nächster Schritt') : null);
   card.appendChild(head);
   if (!it) {
-    card.appendChild(el('div', { class: 'done' }, el('h3', null, 'Kapitel geschafft'), el('p', { class: 'info' }, 'Alle Linien sitzen in allen Tonarten.'),
+    card.appendChild(el('div', { class: 'done' }, el('h3', null, 'Kapitel geschafft'), el('p', { class: 'info' }, 'Alle Linien sitzen in allen Tonarten im Zieltempo (' + S.tGoal + ').'),
       el('button', { class: 'btn primary', onclick: () => { const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) { S.level = LEVELS[i + 1].id; S.cur = null; save(); render(); } } }, 'Weiter zum nächsten Kapitel')));
     stage.appendChild(card); return;
   }
@@ -1534,8 +1609,8 @@ function renderBook() {
   const lineKeys = keysFor(ln);
   const strip = el('div', { class: 'keystrip', role: 'group', 'aria-label': 'Tonarten dieser Linie' });
   lineKeys.forEach(k => {
-    const s = (store()[itemId({ line: ln, key: k })] || [0])[0];
-    strip.appendChild(el('button', { class: 'key s' + s, 'aria-current': k === key ? 'true' : 'false', title: keyTitle(ln, k) + (s === 2 ? ' – sitzt' : s === 1 ? ' – nochmal üben' : ''),
+    const kr = store()[itemId({ line: ln, key: k })], s = stateOfRec(kr);
+    strip.appendChild(el('button', { class: 'key s' + s, 'aria-current': k === key ? 'true' : 'false', title: keyTitle(ln, k) + (s === 2 ? ' – sitzt im Zieltempo' : s === 3 ? ' – sitzt bei ' + kr[3] : s === 1 ? ' – nochmal üben' : ''),
       onclick: () => { S.cur = { lvl: S.level, line: ln.id, key: k }; save(); render(); } }, ln.keys === 'orig' ? 'Original' : PC_NAMES[k]));
   });
   card.appendChild(strip);
@@ -1579,13 +1654,25 @@ function renderBook() {
   if (ln.formula) card.appendChild(el('div', { class: 'formula' }, el('span', { class: 'lab' }, 'Formel'), ln.formula.map((f, i) => el('span', { class: 'step' }, el('i', null, String(i + 1)), f))));
   const lg = legend(); if (lg && S.view === 'notes') card.appendChild(lg);
   if (ln.note) card.appendChild(el('div', { class: 'note' }, 'Hinweis: ' + ln.note));
-  // Bewertung
+  // Tempo: Metronom auf das Tempo dieser Übung stellen (einmal je Übung)
+  const tid = S.mode + '|' + itemId(it);
+  if (S.tempoFor !== tid) { S.tempoFor = tid; setBpm(suggestedTempo(it)); }
+  const r = recOf(it), state = stateOfRec(r);
+  const ladder = el('div', { class: 'ladder', 'aria-label': 'Tempoleiter' });
+  for (let t = S.tStart; t <= S.tGoal; t += T_STEP) {
+    ladder.appendChild(el('span', { class: 'rung' + (r[3] >= t ? ' hit' : '') + (t === suggestedTempo(it) ? ' cur' : '') + (t === S.bpm ? ' now' : ''), title: t + ' BPM', onclick: () => setBpm(t) }, String(t)));
+  }
+  const tInfo = state === 0 ? 'Neue Übung · Start bei ' + suggestedTempo(it)
+    : state === 2 ? 'Sitzt im Zieltempo ' + S.tGoal + ' · Wiederholung'
+    : state === 1 ? 'Nochmal üben' + (r[3] ? ' · bestes Tempo ' + r[3] : '') + ' · jetzt ' + suggestedTempo(it)
+    : 'Sitzt bei ' + r[3] + ' · jetzt ' + suggestedTempo(it) + ' · Ziel ' + S.tGoal;
+  card.appendChild(el('div', { class: 'tempo' }, el('div', { class: 'tempo-info' }, el('b', null, 'Tempo'), ' ' + tInfo), ladder));
   const st = levelStats(S.level);
   card.appendChild(el('div', { class: 'rate' },
-    el('button', { class: 'btn ok', onclick: () => { rate(it, true); S.cur = null; save(); render(); } }, 'Sitzt'),
+    el('button', { class: 'btn ok', onclick: () => { rate(it, true); S.cur = null; save(); render(); } }, 'Sitzt bei ', el('span', { class: 'rate-bpm' }, String(S.bpm))),
     el('button', { class: 'btn again', onclick: () => { rate(it, false); S.cur = null; save(); render(); } }, 'Nochmal üben'),
     el('span', { class: 'spacer' }),
-    el('span', { class: 'hint', style: 'flex-basis:auto' }, st.ok + ' von ' + st.total + ' sitzen · ' + st.again + ' zur Wiedervorlage')));
+    el('span', { class: 'hint', style: 'flex-basis:auto' }, st.ok + ' von ' + st.total + ' im Zieltempo · ' + st.prog + ' unterwegs' + (st.prog ? ' (Ø ' + st.avg + ')' : '') + ' · ' + st.again + ' zur Wiedervorlage')));
   stage.appendChild(card);
 }
 
@@ -1665,13 +1752,15 @@ function renderBar() {
   PC_NAMES.forEach((n, i) => ss.appendChild(el('option', { value: i, selected: i === S.start }, n)));
   $('#v-notes').setAttribute('aria-pressed', S.view === 'notes'); $('#v-nums').setAttribute('aria-pressed', S.view === 'nums');
   $('#chk-colors').checked = S.colors;
+  const ts = $('#sel-tstart'), tg = $('#sel-tgoal'); ts.innerHTML = ''; tg.innerHTML = '';
+  for (let t = 40; t <= 300; t += 10) { ts.appendChild(el('option', { value: t, selected: t === S.tStart }, String(t))); tg.appendChild(el('option', { value: t, selected: t === S.tGoal }, String(t))); }
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.mode === S.mode));
 }
 function render() {
   renderBar(); renderSide();
   if (S.mode === 'gen') renderGen(); else renderBook();
   const tot = LEVELS.reduce((a, L) => { const s = levelStats(L.id, S.prog); a.ok += s.ok; a.t += s.total; return a; }, { ok: 0, t: 0 });
-  $('#foot-stat').textContent = 'Buch: ' + tot.ok + ' von ' + tot.t + ' Übungen sitzen. Fortschritt bleibt in diesem Browser gespeichert.';
+  $('#foot-stat').textContent = 'Buch: ' + tot.ok + ' von ' + tot.t + ' Übungen sitzen im Zieltempo. Fortschritt bleibt in diesem Browser gespeichert.';
 }
 
 /* ---------- Bedienelemente ---------- */
@@ -1682,6 +1771,8 @@ $('#sel-start').addEventListener('change', e => { S.start = +e.target.value; S.c
 $('#v-notes').addEventListener('click', () => { S.view = 'notes'; save(); render(); });
 $('#v-nums').addEventListener('click', () => { S.view = 'nums'; save(); render(); });
 $('#chk-colors').addEventListener('change', e => { S.colors = e.target.checked; save(); render(); });
+$('#sel-tstart').addEventListener('change', e => { S.tStart = +e.target.value; if (S.tGoal < S.tStart) S.tGoal = S.tStart; S.tempoFor = null; save(); render(); });
+$('#sel-tgoal').addEventListener('change', e => { S.tGoal = +e.target.value; if (S.tStart > S.tGoal) S.tStart = S.tGoal; S.tempoFor = null; save(); render(); });
 let rT = null, lastW = window.innerWidth;
 window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - lastW) < 30) return; lastW = window.innerWidth; clearTimeout(rT); rT = setTimeout(render, 200); });
 
@@ -1721,7 +1812,7 @@ async function toggleMetro() {
   $('#m-play').innerHTML = M.on ? '<svg viewBox="0 0 20 20"><path d="M5 4h4v12H5zM11 4h4v12h-4z"/></svg>' : '<svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z"/></svg>';
   $('#m-play').setAttribute('aria-label', M.on ? 'Metronom stoppen' : 'Metronom starten');
 }
-function setBpm(v) { S.bpm = Math.max(40, Math.min(320, Math.round(v))); $('#m-range').value = S.bpm; $('#m-bpm').innerHTML = S.bpm + '<small>BPM</small>'; save(); }
+function setBpm(v) { S.bpm = Math.max(40, Math.min(320, Math.round(v))); $('#m-range').value = S.bpm; $('#m-bpm').innerHTML = S.bpm + '<small>BPM</small>'; document.querySelectorAll('.rate-bpm').forEach(x => { x.textContent = S.bpm; }); document.querySelectorAll('.ladder .rung').forEach(x => x.classList.toggle('now', +x.textContent === S.bpm)); save(); }
 $('#m-play').addEventListener('click', toggleMetro);
 $('#m-range').addEventListener('input', e => setBpm(+e.target.value));
 $('#m-minus').addEventListener('click', () => setBpm(S.bpm - 5));
@@ -1737,7 +1828,7 @@ const APP = 'jacobson-bebop';
 let downloads = null;
 if (window.claude && window.claude.use) { window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {}); }
 function exportCode() {
-  return JSON.stringify({ app: APP, v: 1, saved: new Date().toISOString().slice(0, 10), counter: S.counter, memCounter: S.memCounter, instr: S.instr, prog: S.prog, mem: S.mem, oct: S.oct });
+  return JSON.stringify({ app: APP, v: 1, saved: new Date().toISOString().slice(0, 10), counter: S.counter, memCounter: S.memCounter, instr: S.instr, tStart: S.tStart, tGoal: S.tGoal, prog: S.prog, mem: S.mem, oct: S.oct });
 }
 function openDlg(build) { const d = $('#dlg'), b = $('#dlg-body'); b.innerHTML = ''; build(b, () => d.close()); if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
 $('#btn-export').addEventListener('click', () => openDlg((b, close) => {
@@ -1759,7 +1850,7 @@ $('#btn-export').addEventListener('click', () => openDlg((b, close) => {
 }));
 function mergeProg(a, b) {
   const out = Object.assign({}, a);
-  for (const k in b) { const x = out[k], y = b[k]; if (!x) out[k] = y; else out[k] = [Math.max(x[0], y[0]), Math.max(x[1], y[1]), Math.max(x[2], y[2])]; }
+  for (const k in b) { const x = out[k], y = b[k]; if (!x) out[k] = y; else { const n = Math.max(x.length, y.length), m = []; for (let i = 0; i < n; i++) m.push(Math.max(x[i] || 0, y[i] || 0)); out[k] = m; } }
   return out;
 }
 $('#btn-import').addEventListener('click', () => openDlg((b, close) => {
@@ -1771,7 +1862,7 @@ $('#btn-import').addEventListener('click', () => openDlg((b, close) => {
   const repl = el('button', { class: 'btn ghost', onclick: () => {
     const x = parse(); if (!x) return;
     if (!armed) { armed = true; repl.textContent = 'Wirklich ersetzen?'; msg.textContent = 'Ersetzen löscht den Fortschritt in diesem Browser. Zum Bestätigen noch einmal tippen.'; return; }
-    S.prog = x.prog || {}; S.mem = x.mem || {}; S.counter = x.counter || 0; S.memCounter = x.memCounter || 0; S.oct = x.oct || {}; S.cur = null; save(); render(); close();
+    S.prog = x.prog || {}; S.mem = x.mem || {}; S.counter = x.counter || 0; S.memCounter = x.memCounter || 0; S.oct = x.oct || {}; if (x.tStart) { S.tStart = x.tStart; S.tGoal = x.tGoal; } S.cur = null; S.tempoFor = null; save(); render(); close();
   } }, 'Ersetzen');
   b.append(el('h3', null, 'Fortschritt laden'), el('p', { class: 'info' }, 'Füge einen gesicherten Code ein oder wähle die Datei. „Zusammenführen“ übernimmt pro Übung den weiteren Stand.'), ta, file,
     el('div', { class: 'row' },
