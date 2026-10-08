@@ -1364,7 +1364,7 @@ const PC_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 
 /* ---------- Speicher ---------- */
 const STORE = 'jacobson-bebop-v1';
 const DEFAULT = { v: 1, mode: 'book', level: 'D1', instr: 'C', cycle: 'quart', start: 0, view: 'notes', colors: true, order: 'line',
-  bpm: 100, m24: true, tStart: 80, tGoal: 200, tempoFor: null, oct: {}, prog: {}, mem: {}, counter: 0, memCounter: 0,
+  bpm: 100, m24: true, tStart: 80, tGoal: 200, tempoFor: null, ptr: {}, oct: {}, prog: {}, mem: {}, counter: 0, memCounter: 0,
   gen: { prog: 'dom2', allow: { start: true, arp: true, arpInv: true, encl: true, emb: true }, keyMode: 'cycle', keyIdx: 0, reveal: false } };
 let S = JSON.parse(JSON.stringify(DEFAULT));
 try { const raw = localStorage.getItem(STORE); if (raw) { const x = JSON.parse(raw); S = Object.assign(S, x); S.gen = Object.assign({}, DEFAULT.gen, x.gen || {}); S.gen.allow = Object.assign({}, DEFAULT.gen.allow, (x.gen || {}).allow || {}); } } catch (e) {}
@@ -1416,15 +1416,18 @@ function recommendedLevel() {
   for (const L of LEVELS) { const s = levelStats(L.id); if (s.ok + s.prog < s.total) return L.id; }
   return LEVELS[LEVELS.length - 1].id;
 }
-// Nächste fällige Übung in einer Stufe
+// Nächste Übung: immer die nächste Tonart in der gewählten Reihenfolge (nach der zuletzt bewerteten),
+// am Ende der Reihe weiter mit der nächsten Linie, danach von vorn. Übungen im Zieltempo werden übersprungen.
 function nextItem(lvl) {
-  const items = itemsOf(lvl), st = store(), c = S[counterKey()];
-  const open = items.filter(it => { const s = stateOfRec(st[itemId(it)]); return s === 1 || s === 3; }).sort((a, b) => st[itemId(a)][1] - st[itemId(b)][1]);
-  const due = open.filter(it => st[itemId(it)][1] <= c);
-  if (due.length) return due[0];
-  const fresh = items.find(it => stateOfRec(st[itemId(it)]) === 0);
-  if (fresh) return fresh;
-  return open[0] || null;
+  const items = itemsOf(lvl), st = store();
+  if (!items.length) return null;
+  const last = (S.ptr || {})[S.mode + '|' + lvl];
+  const i0 = last ? items.findIndex(it => itemId(it) === last) : -1;
+  for (let n = 1; n <= items.length; n++) {
+    const it = items[(i0 + n + items.length) % items.length];
+    if (stateOfRec(st[itemId(it)]) !== 2) return it;
+  }
+  return null;
 }
 function rate(it, ok) {
   const st = store(), id = itemId(it), ck = counterKey();
@@ -1438,6 +1441,7 @@ function rate(it, ok) {
     st[id] = [1, c + Math.min(3 + 2 * reps, 9), reps, best, Math.max(S.tStart, T - T_STEP)];
   }
   S.tempoFor = null;
+  S.ptr = S.ptr || {}; S.ptr[S.mode + '|' + it.line.lvl] = id;
   save();
 }
 
