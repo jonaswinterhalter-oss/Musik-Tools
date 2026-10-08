@@ -1422,7 +1422,9 @@ function nextItem(lvl) {
   const items = itemsOf(lvl), st = store();
   if (!items.length) return null;
   const last = (S.ptr || {})[S.mode + '|' + lvl];
-  const i0 = last ? items.findIndex(it => itemId(it) === last) : -1;
+  let i0 = -1;
+  if (last && last.startsWith('restart:')) { const j = items.findIndex(it => it.line.id === last.slice(8)); i0 = j > 0 ? j - 1 : -1; }
+  else if (last) i0 = items.findIndex(it => itemId(it) === last);
   for (let n = 1; n <= items.length; n++) {
     const it = items[(i0 + n + items.length) % items.length];
     if (stateOfRec(st[itemId(it)]) !== 2) return it;
@@ -1770,8 +1772,14 @@ function render() {
 /* ---------- Bedienelemente ---------- */
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { S.mode = b.dataset.mode; S.cur = null; save(); render(); }));
 $('#sel-instr').addEventListener('change', e => { S.instr = e.target.value; save(); render(); });
-$('#sel-cycle').addEventListener('change', e => { S.cycle = e.target.value; S.cur = null; save(); render(); });
-$('#sel-start').addEventListener('change', e => { S.start = +e.target.value; S.cur = null; save(); render(); });
+// Neue Tonartfolge oder neuer Startton: in der aktuellen Linie wieder beim Anfang der Reihe beginnen
+function restartOrder() {
+  S.ptr = S.ptr || {};
+  Object.keys(S.ptr).forEach(k => { const v = S.ptr[k]; if (v && !v.startsWith('restart:')) S.ptr[k] = 'restart:' + v.split('@')[0]; });
+  S.cur = null;
+}
+$('#sel-cycle').addEventListener('change', e => { S.cycle = e.target.value; restartOrder(); save(); render(); });
+$('#sel-start').addEventListener('change', e => { S.start = +e.target.value; restartOrder(); save(); render(); });
 $('#v-notes').addEventListener('click', () => { S.view = 'notes'; save(); render(); });
 $('#v-nums').addEventListener('click', () => { S.view = 'nums'; save(); render(); });
 $('#chk-colors').addEventListener('change', e => { S.colors = e.target.checked; save(); render(); });
