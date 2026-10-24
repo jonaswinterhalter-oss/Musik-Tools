@@ -157,6 +157,7 @@ button{cursor:pointer}
 .metro{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#161311;color:#F2EEE8;box-shadow:0 -1px 0 rgba(255,255,255,.08);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
 .metro .wrap{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding-inline:0}
 .metro .play{width:46px;height:46px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center}
+.metro .play.warn{box-shadow:0 0 0 3px #FFC20E}
 .metro .play svg{width:18px;height:18px;fill:currentColor}
 .bpm{font:400 34px/1 var(--display);min-width:3ch;text-align:right;font-variant-numeric:tabular-nums}
 .bpm small{font:500 11px var(--body);opacity:.7;margin-left:4px;letter-spacing:.06em}
@@ -1789,24 +1790,68 @@ let rT = null, lastW = window.innerWidth;
 window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - lastW) < 30) return; lastW = window.innerWidth; clearTimeout(rT); rT = setTimeout(render, 200); });
 
 /* ---------- Metronom ---------- */
-const M = { ctx: null, on: false, next: 0, beat: 0, timer: null, queue: [] };
+const M = { ctx: null, out: null, on: false, next: 0, beat: 0, timer: null, queue: [], el: null, lastT: -1, stuck: 0 };
+const AC = window.AudioContext || window.webkitAudioContext;
+// Stilles HTML-Audio (WAV, 0,5 s) – hält iOS im Wiedergabe-Modus, damit der Stummschalter Web Audio nicht stilllegt
+function silentWav() {
+  const n = 4000, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+function makeCtx() {
+  try { if (M.ctx && M.ctx.close) M.ctx.close(); } catch (e) {}
+  M.ctx = new AC({ latencyHint: 'interactive' });
+  M.out = M.ctx.createGain(); M.out.gain.value = 1; M.out.connect(M.ctx.destination);
+  M.lastT = -1; M.stuck = 0;
+}
+// Muss synchron innerhalb einer Nutzeraktion laufen
+function unlockAudio(full) {
+  if (full) {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  if (!M.el) { try { M.el = new Audio(silentWav()); M.el.loop = true; M.el.setAttribute('playsinline', ''); M.el.volume = 0.01; } catch (e) { M.el = null; } }
+  if (M.el) { const pr = M.el.play(); if (pr && pr.catch) pr.catch(() => {}); }
+  }
+  if (!M.ctx || M.ctx.state === 'closed' || M.ctx.state === 'interrupted') makeCtx();
+  if (M.ctx.state !== 'running') { const pr = M.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); }
+  try { const b = M.ctx.createBuffer(1, 1, 22050), src = M.ctx.createBufferSource(); src.buffer = b; src.connect(M.ctx.destination); src.start(0); } catch (e) {}
+}
+// Schon der erste Tipp irgendwo auf der Seite schaltet den Ton frei
+['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, function first() {
+  try { unlockAudio(); } catch (e) {}
+  ['pointerdown', 'touchend', 'keydown'].forEach(x => document.removeEventListener(x, first, true));
+}, true));
 function click(time, strong, loud) {
   const c = M.ctx, o = c.createOscillator(), g = c.createGain();
   o.type = 'triangle'; o.frequency.value = strong ? 1800 : 1250;
   g.gain.setValueAtTime(0.0001, time);
   g.gain.exponentialRampToValueAtTime(loud ? 0.9 : 0.45, time + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
-  o.connect(g); g.connect(c.destination); o.start(time); o.stop(time + 0.06);
+  o.connect(g); g.connect(M.out || c.destination); o.start(time); o.stop(time + 0.06);
 }
 function scheduler() {
+  if (!M.on || !M.ctx) return;
+  const now = M.ctx.currentTime;
+  // Uhr steht? (iOS/Safari nach Unterbrechung) → wiederbeleben
+  if (now === M.lastT) { if (++M.stuck === 12) { const pr = M.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); } if (M.stuck > 40) { metroHint(true); } return; }
+  if (M.stuck > 40) metroHint(false);
+  M.lastT = now; M.stuck = 0;
+  // Nie in die Vergangenheit planen – solche Klicks wären stumm
+  if (M.next < now + 0.02) M.next = now + 0.05;
   const spb = 60 / S.bpm;
-  while (M.next < M.ctx.currentTime + 0.12) {
+  while (M.next < now + 0.12) {
     const b = M.beat % 4;
     if (S.m24) { if (b === 1 || b === 3) click(M.next, true, true); }
     else click(M.next, b === 0, b === 0);
     M.queue.push({ t: M.next, b });
     M.next += spb; M.beat++;
   }
+}
+function metroHint(show) {
+  const b = $('#m-play'); if (!b) return;
+  b.classList.toggle('warn', !!show);
+  b.title = show ? 'Kein Ton? Einmal auf Stopp und wieder Play tippen' : '';
 }
 function drawDots() {
   if (!M.on) { document.querySelectorAll('#m-dots i').forEach(i => i.classList.remove('on')); return; }
@@ -1815,15 +1860,24 @@ function drawDots() {
   if (cur) document.querySelectorAll('#m-dots i').forEach((i, k) => i.classList.toggle('on', k === cur.b));
   requestAnimationFrame(drawDots);
 }
-async function toggleMetro() {
-  if (!M.ctx) { const AC = window.AudioContext || window.webkitAudioContext; M.ctx = new AC(); const b = M.ctx.createBuffer(1, 1, 22050); const s = M.ctx.createBufferSource(); s.buffer = b; s.connect(M.ctx.destination); s.start(0); }
-  if (M.ctx.state === 'suspended') await M.ctx.resume();
+function toggleMetro() {
   M.on = !M.on;
-  if (M.on) { M.beat = 0; M.next = M.ctx.currentTime + 0.08; M.queue = []; scheduler(); M.timer = setInterval(scheduler, 25); requestAnimationFrame(drawDots); }
-  else { clearInterval(M.timer); drawDots(); }
+  if (M.on) {
+    unlockAudio(true); // synchron in der Klick-Aktion
+    // Hängt der Kontext, sofort einen frischen anlegen (noch innerhalb der Nutzeraktion)
+    if (M.ctx.state === 'suspended' && M.started) { makeCtx(); const pr = M.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); }
+    M.started = true;
+    M.beat = 0; M.next = M.ctx.currentTime + 0.1; M.queue = []; M.lastT = -1; M.stuck = 0;
+    clearInterval(M.timer); M.timer = setInterval(scheduler, 25); scheduler(); requestAnimationFrame(drawDots);
+  } else { clearInterval(M.timer); metroHint(false); drawDots(); if (M.el) M.el.pause(); }
   $('#m-play').innerHTML = M.on ? '<svg viewBox="0 0 20 20"><path d="M5 4h4v12H5zM11 4h4v12h-4z"/></svg>' : '<svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z"/></svg>';
   $('#m-play').setAttribute('aria-label', M.on ? 'Metronom stoppen' : 'Metronom starten');
 }
+// Zurück in den Tab / aus dem Hintergrund: Ton wieder anwerfen
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && M.ctx && M.ctx.state !== 'running') { const pr = M.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); }
+});
+window.addEventListener('pageshow', e => { if (e.persisted && M.ctx) { M.on = false; clearInterval(M.timer); makeCtx(); } });
 function setBpm(v) { S.bpm = Math.max(40, Math.min(320, Math.round(v))); $('#m-range').value = S.bpm; $('#m-bpm').innerHTML = S.bpm + '<small>BPM</small>'; document.querySelectorAll('.rate-bpm').forEach(x => { x.textContent = S.bpm; }); document.querySelectorAll('.ladder .rung').forEach(x => x.classList.toggle('now', +x.textContent === S.bpm)); save(); }
 $('#m-play').addEventListener('click', toggleMetro);
 $('#m-range').addEventListener('input', e => setBpm(+e.target.value));
