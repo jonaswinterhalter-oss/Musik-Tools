@@ -188,6 +188,11 @@ dialog::backdrop{background:rgba(10,8,6,.55)}
   .key{min-width:40px}
   .bpm{font-size:28px}
 }
+.opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.opts label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.opts label:has(input:checked){border-color:var(--accent)}
+.opts small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.btn.danger{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -241,6 +246,7 @@ dialog::backdrop{background:rgba(10,8,6,.55)}
   <div class="foot">
     <button class="btn ghost" id="btn-export">Fortschritt sichern</button>
     <button class="btn ghost" id="btn-import">Fortschritt laden</button>
+    <button class="btn ghost" id="btn-reset">Fortschritt zurücksetzen</button>
     <span id="foot-stat"></span>
   </div>
 </div>
@@ -1934,6 +1940,44 @@ $('#btn-import').addEventListener('click', () => openDlg((b, close) => {
     el('div', { class: 'row' },
       el('button', { class: 'btn ok', onclick: () => { const x = parse(); if (!x) return; S.prog = mergeProg(S.prog, x.prog || {}); S.mem = mergeProg(S.mem, x.mem || {}); S.counter = Math.max(S.counter, x.counter || 0); S.memCounter = Math.max(S.memCounter, x.memCounter || 0); S.cur = null; save(); render(); close(); } }, 'Zusammenführen'),
       repl, el('button', { class: 'btn ghost', onclick: close }, 'Abbrechen')), msg);
+}));
+
+$('#btn-reset').addEventListener('click', () => openDlg((b, close) => {
+  const modeName = S.mode === 'mem' ? 'Gedächtnis' : 'Buch';
+  const which = S.mode === 'mem' ? 'mem' : 'prog';
+  const L = levelById(S.level);
+  const lineIds = new Set(linesOf(S.level).map(l => l.id));
+  const countIn = (st, f) => Object.keys(st).filter(f).length;
+  const nLvl = countIn(S[which], k => lineIds.has(k.split('@')[0]));
+  const opts = [
+    { v: 'level', t: 'Nur dieses Kapitel: ' + L.id + ' · ' + L.title, d: modeName + '-Modus · ' + nLvl + ' bewertete Übungen' },
+    { v: 'mode', t: 'Ganzer ' + modeName + '-Modus', d: 'alle Kapitel · ' + Object.keys(S[which]).length + ' bewertete Übungen' },
+    { v: 'all', t: 'Alles', d: 'Buch und Gedächtnis · ' + (Object.keys(S.prog).length + Object.keys(S.mem).length) + ' bewertete Übungen, Oktavlagen' }
+  ];
+  const box = el('div', { class: 'opts', role: 'radiogroup' });
+  opts.forEach((o, i) => box.appendChild(el('label', null, el('input', { type: 'radio', name: 'rs', value: o.v, checked: i === 0 }), el('span', null, o.t, el('small', null, o.d)))));
+  const msg = el('div', { class: 'msg' });
+  let armed = false;
+  const go = el('button', { class: 'btn danger', onclick: () => {
+    const v = (box.querySelector('input:checked') || {}).value;
+    if (!armed) { armed = true; go.textContent = 'Wirklich zurücksetzen?'; msg.textContent = 'Das lässt sich nicht rückgängig machen. Zum Bestätigen noch einmal tippen.'; return; }
+    const drop = (st, f) => { Object.keys(st).forEach(k => { if (f(k)) delete st[k]; }); };
+    if (v === 'level') {
+      drop(S[which], k => lineIds.has(k.split('@')[0]));
+      if (S.ptr) delete S.ptr[(S.mode === 'mem' ? 'mem' : 'book') + '|' + S.level];
+    } else if (v === 'mode') {
+      S[which] = {}; S[which === 'mem' ? 'memCounter' : 'counter'] = 0;
+      if (S.ptr) Object.keys(S.ptr).forEach(k => { if (k.startsWith((S.mode === 'mem' ? 'mem' : 'book') + '|')) delete S.ptr[k]; });
+    } else {
+      S.prog = {}; S.mem = {}; S.counter = 0; S.memCounter = 0; S.ptr = {}; S.oct = {};
+    }
+    S.cur = null; S.tempoFor = null; save(); render(); close();
+  } }, 'Zurücksetzen');
+  box.addEventListener('change', () => { armed = false; go.textContent = 'Zurücksetzen'; msg.textContent = ''; });
+  b.append(el('h3', null, 'Fortschritt zurücksetzen'),
+    el('p', { class: 'info' }, 'Einstellungen (Stimmung, Tonartfolge, Tempobereich) bleiben erhalten. Tipp: vorher mit „Fortschritt sichern“ eine Kopie machen.'),
+    box,
+    el('div', { class: 'row' }, go, el('button', { class: 'btn ghost', onclick: () => { close(); $('#btn-export').click(); } }, 'Erst sichern'), el('button', { class: 'btn ghost', onclick: close }, 'Abbrechen')), msg);
 }));
 
 render();
